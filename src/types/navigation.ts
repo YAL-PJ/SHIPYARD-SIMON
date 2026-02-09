@@ -1,6 +1,8 @@
+import { CoachLabel } from "./coaches";
+
 export type RootStackParamList = {
   Welcome: undefined;
   Home: undefined;
-  Chat: { coach: string };
+  Chat: { coach: CoachLabel };
   Paywall: undefined;
 };

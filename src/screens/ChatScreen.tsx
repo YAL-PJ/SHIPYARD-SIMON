@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -8,47 +9,153 @@ import {
 } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 
+import { fetchCoachReply } from "../ai/openai";
+import { COACH_OPENING_MESSAGES } from "../ai/prompts";
+import { ChatMessage } from "../types/chat";
 import { RootStackParamList } from "../types/navigation";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Chat">;
 
-export const ChatScreen = ({ navigation, route }: Props) => {
+type MessageContentProps = {
+  message: ChatMessage;
+};
+
+const ERROR_MESSAGE = "Something went wrong. Try again.";
+
+const createMessageId = () =>
+  `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+const MessageContent = ({ message }: MessageContentProps) => {
+  const isUser = message.role === "user";
+
+  return (
+    <View
+      style={[
+        styles.messageBubble,
+        isUser ? styles.userBubble : styles.assistantBubble,
+      ]}
+    >
+      <Text style={isUser ? styles.userMessageText : styles.messageText}>
+        {message.content}
+      </Text>
+    </View>
+  );
+};
+
+export const ChatScreen = ({ route }: Props) => {
   const { coach } = route.params;
+  const scrollViewRef = useRef<ScrollView>(null);
+  const openingMessage = useMemo(
+    () => COACH_OPENING_MESSAGES[coach],
+    [coach],
+  );
+
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [input, setInput] = useState("");
+  const [isSending, setIsSending] = useState(false);
+
+  useEffect(() => {
+    setMessages([
+      {
+        id: createMessageId(),
+        role: "assistant",
+        content: openingMessage,
+        isOpening: true,
+      },
+    ]);
+  }, [openingMessage]);
+
+  const handleSend = async () => {
+    const trimmed = input.trim();
+
+    if (!trimmed || isSending) {
+      return;
+    }
+
+    const userMessage: ChatMessage = {
+      id: createMessageId(),
+      role: "user",
+      content: trimmed,
+    };
+
+    const nextMessages = [...messages, userMessage];
+
+    setInput("");
+    setMessages(nextMessages);
+    setIsSending(true);
+
+    try {
+      const reply = await fetchCoachReply({
+        coach,
+        messages: nextMessages,
+      });
+
+      const assistantContent = reply || ERROR_MESSAGE;
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: createMessageId(),
+          role: "assistant",
+          content: assistantContent,
+          isError: !reply,
+        },
+      ]);
+    } catch (error) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: createMessageId(),
+          role: "assistant",
+          content: ERROR_MESSAGE,
+          isError: true,
+        },
+      ]);
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const isSendDisabled = isSending || input.trim().length === 0;
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerText}>{coach}</Text>
       </View>
-      <View style={styles.messages}>
-        <View style={styles.messageBubble}>
-          <Text style={styles.messageText}>Messages will appear here.</Text>
-        </View>
-        <View style={[styles.messageBubble, styles.userBubble]}>
-          <Text style={styles.userMessageText}>Your replies will show here.</Text>
-        </View>
-      </View>
+      <ScrollView
+        ref={scrollViewRef}
+        style={styles.messages}
+        contentContainerStyle={styles.messageContent}
+        onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({
+          animated: true,
+        })}
+      >
+        {messages.map((message) => (
+          <MessageContent key={message.id} message={message} />
+        ))}
+      </ScrollView>
       <View style={styles.inputRow}>
         <TextInput
           placeholder="Type a message"
           placeholderTextColor="#9ca3af"
           style={styles.input}
+          value={input}
+          onChangeText={setInput}
+          editable={!isSending}
         />
         <TouchableOpacity
           accessibilityRole="button"
-          style={styles.sendButton}
-          onPress={() => {}}
+          style={[
+            styles.sendButton,
+            isSendDisabled && styles.sendButtonDisabled,
+          ]}
+          disabled={isSendDisabled}
+          onPress={handleSend}
         >
-          <Text style={styles.sendText}>Send</Text>
+          <Text style={styles.sendText}>{isSending ? "..." : "Send"}</Text>
         </TouchableOpacity>
       </View>
-      <TouchableOpacity
-        accessibilityRole="button"
-        style={styles.paywallLink}
-        onPress={() => navigation.navigate("Paywall")}
-      >
-        <Text style={styles.paywallText}>Go to Paywall</Text>
-      </TouchableOpacity>
     </View>
   );
 };
@@ -70,12 +177,18 @@ const styles = StyleSheet.create({
   },
   messages: {
     flex: 1,
+  },
+  messageContent: {
     gap: 12,
+    paddingBottom: 12,
   },
   messageBubble: {
     maxWidth: "80%",
     padding: 12,
     borderRadius: 12,
+  },
+  assistantBubble: {
+    alignSelf: "flex-start",
     backgroundColor: "#f3f4f6",
   },
   userBubble: {
@@ -110,16 +223,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: "#111827",
   },
+  sendButtonDisabled: {
+    opacity: 0.5,
+  },
   sendText: {
     color: "#fff",
     fontWeight: "600",
-  },
-  paywallLink: {
-    marginTop: 16,
-    alignItems: "center",
-  },
-  paywallText: {
-    color: "#2563eb",
-    fontWeight: "500",
   },
 });
