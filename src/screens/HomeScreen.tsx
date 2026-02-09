@@ -3,10 +3,15 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 
 import { RootStackParamList } from "../types/navigation";
+import { CoachLabel } from "../types/coaches";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Home">;
 
-const COACHES = [
+type CoachOption = {
+  label: CoachLabel;
+};
+
+const COACHES: CoachOption[] = [
   { label: "Focus Coach" },
   { label: "Decision Coach" },
   { label: "Reflection Coach" },
