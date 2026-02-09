@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ScrollView,
+  FlatList,
   StyleSheet,
   Text,
   TextInput,
@@ -13,6 +13,7 @@ import { fetchCoachReply } from "../ai/openai";
 import { COACH_OPENING_MESSAGES } from "../ai/prompts";
 import { ChatMessage } from "../types/chat";
 import { RootStackParamList } from "../types/navigation";
+import { getUserContext } from "../storage/preferences";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Chat">;
 
@@ -44,7 +45,7 @@ const MessageContent = ({ message }: MessageContentProps) => {
 
 export const ChatScreen = ({ route }: Props) => {
   const { coach } = route.params;
-  const scrollViewRef = useRef<ScrollView>(null);
+  const listRef = useRef<FlatList<ChatMessage>>(null);
   const openingMessage = useMemo(
     () => COACH_OPENING_MESSAGES[coach],
     [coach],
@@ -85,9 +86,11 @@ export const ChatScreen = ({ route }: Props) => {
     setIsSending(true);
 
     try {
+      const userContext = await getUserContext();
       const reply = await fetchCoachReply({
         coach,
         messages: nextMessages,
+        userContext,
       });
 
       const assistantContent = reply || ERROR_MESSAGE;
@@ -123,18 +126,19 @@ export const ChatScreen = ({ route }: Props) => {
       <View style={styles.header}>
         <Text style={styles.headerText}>{coach}</Text>
       </View>
-      <ScrollView
-        ref={scrollViewRef}
+      <FlatList
+        ref={listRef}
         style={styles.messages}
+        data={messages}
+        keyExtractor={(message) => message.id}
+        renderItem={({ item }) => <MessageContent message={item} />}
         contentContainerStyle={styles.messageContent}
-        onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({
-          animated: true,
-        })}
-      >
-        {messages.map((message) => (
-          <MessageContent key={message.id} message={message} />
-        ))}
-      </ScrollView>
+        onContentSizeChange={() =>
+          listRef.current?.scrollToEnd({
+            animated: true,
+          })
+        }
+      />
       <View style={styles.inputRow}>
         <TextInput
           placeholder="Type a message"

@@ -76,10 +76,10 @@ Why three:
 ---
 
 ## Core Flow
-1. Open app
-2. See three coach cards
-3. (Optional) add personal context / values
-4. Tap coach → instant chat
+1. First launch: open app to Welcome / Context
+2. Tap Skip for now → see three coach cards
+3. Tap coach → instant chat
+4. Returning launches open directly to Focus Coach chat
 5. Receive guidance
 6. Hit paywall after value
 

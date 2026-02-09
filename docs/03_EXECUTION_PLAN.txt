@@ -129,7 +129,8 @@ Day 2 complete.
 Goal: Define app behavior before code.
 
 Locked Behavior:
-- App always opens to Focus Coach
+- First-ever launch opens Welcome / Context
+- Returning launches open directly to Focus Coach chat
 - First assistant message appears immediately
 - Coach switching is manual (no auto-routing in MVP)
 - All coaches available in free tier
@@ -139,7 +140,8 @@ Locked Behavior:
 - If paywall is dismissed, conversation pauses until next day
 
 One-line flow:
-Open → Focus Coach → clarity → limit → calm paywall → choice
+First launch: Open → Welcome / Context → Home → coach chat → clarity → limit → calm paywall → choice
+Returning launch: Open → Focus Coach → clarity → limit → calm paywall → choice
 
 Step locked. Skeleton can be built safely.
 
@@ -169,16 +171,18 @@ Rules:
 Goal: Make conversation real while preserving behavior.
 
 Deliverables:
-- [ ] OpenAI integration
-- [ ] System prompt injection per coach
-- [ ] Opening message injection
-- [ ] User context injection
-- [ ] Loading states
-- [ ] Error handling
+- [x] OpenAI integration
+- [x] System prompt injection per coach
+- [x] Opening message injection
+- [x] User context injection
+- [x] Loading states
+- [x] Error handling
 
 Rules:
 - Prompts are not edited
 - Behavior > performance
+
+Day 4 complete.
 
 ---
 

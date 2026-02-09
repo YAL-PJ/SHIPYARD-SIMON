@@ -1,18 +1,5 @@
-import OpenAI from "openai";
-import { ChatCompletionMessageParam } from "openai/resources/chat/completions";
-
-import { CoachLabel } from "../types/coaches";
 import { ChatMessage } from "../types/chat";
-import { buildSystemPrompt } from "./prompts";
-
-const MODEL = "gpt-4o-mini";
-const TEMPERATURE = 0.2;
-const MAX_TOKENS = 200;
-
-const openai = new OpenAI({
-  apiKey: process.env.EXPO_PUBLIC_OPENAI_API_KEY ?? "",
-  dangerouslyAllowBrowser: true,
-});
+import { CoachLabel } from "../types/coaches";
 
 type OpenAIRequest = {
   coach: CoachLabel;
@@ -20,28 +7,67 @@ type OpenAIRequest = {
   userContext?: string;
 };
 
+type CoachReplyResponse = {
+  reply?: string;
+};
+
+const DEFAULT_API_BASE_URL = "http://localhost:8787";
+const MAX_HISTORY_MESSAGES = 24;
+const REQUEST_TIMEOUT_MS = 30000;
+
+const getApiBaseUrl = () => {
+  const envValue = (
+    globalThis as {
+      process?: {
+        env?: Record<string, string | undefined>;
+      };
+    }
+  ).process?.env?.EXPO_PUBLIC_API_BASE_URL;
+
+  if (!envValue || envValue.trim().length === 0) {
+    return DEFAULT_API_BASE_URL;
+  }
+
+  return envValue.replace(/\/+$/, "");
+};
+
 export const fetchCoachReply = async ({
   coach,
   messages,
   userContext,
 }: OpenAIRequest) => {
-  const systemPrompt = buildSystemPrompt(coach, userContext);
-  const chatMessages: ChatCompletionMessageParam[] = [
-    { role: "system", content: systemPrompt },
-    ...messages
-      .filter((message) => !message.isError)
-      .map((message) => ({
-        role: message.role,
-        content: message.content,
-      })),
-  ];
+  const controller = new AbortController();
+  const timeout = setTimeout(() => {
+    controller.abort();
+  }, REQUEST_TIMEOUT_MS);
 
-  const response = await openai.chat.completions.create({
-    model: MODEL,
-    messages: chatMessages,
-    temperature: TEMPERATURE,
-    max_tokens: MAX_TOKENS,
-  });
+  try {
+    const response = await fetch(`${getApiBaseUrl()}/api/coach-reply`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      signal: controller.signal,
+      body: JSON.stringify({
+        coach,
+        userContext,
+        messages: messages
+          .filter((message) => !message.isError)
+          .slice(-MAX_HISTORY_MESSAGES),
+      }),
+    });
 
-  return response.choices[0]?.message?.content?.trim() ?? "";
+    if (!response.ok) {
+      return "";
+    }
+
+    const body = (await response.json()) as CoachReplyResponse;
+    const reply = body.reply?.trim() ?? "";
+
+    return reply;
+  } catch {
+    return "";
+  } finally {
+    clearTimeout(timeout);
+  }
 };

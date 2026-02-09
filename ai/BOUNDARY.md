@@ -2,6 +2,7 @@
 
 This app uses a **single LLM (OpenAI)** as its only intelligence source.  
 There is **no model switching, no fallback, and no alternate providers**.
+OpenAI API keys are server-only and must never be shipped in client code or public env vars.
 
 All AI responses **must pass through the Global Coaching Constitution** and a **coach-specific system prompt**.  
 These prompts are **immutable at runtime** and may not be edited, generated, or modified by users or by the app itself.
