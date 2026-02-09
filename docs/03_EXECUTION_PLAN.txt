@@ -1,0 +1,264 @@
+# Execution Plan — Start to Finish
+
+This document is the operational truth of the build.
+If something is not here, it is not part of the product.
+
+---
+
+## Locked Decisions (Day 0)
+
+Platform: React Native (Expo) — Android-first  
+LLM: OpenAI (single model, no switching)  
+Monetization: RevenueCat — Monthly subscription  
+Free Tier: Limited messages per day (no visible counter)
+
+---
+
+## Day 0 — Lock the Ground (DECISIONS ONLY)
+
+Goal: Prevent architectural and philosophical drift.
+
+Deliverables:
+- [x] Platform locked
+- [x] LLM locked
+- [x] Monetization method locked
+- [x] Free-tier model locked (limited messages per day)
+- [x] Source-of-truth docs created
+- [x] Law written at top of One Pager
+
+Rules:
+- No design
+- No code
+- No ideation
+- Decisions only
+
+Day 0 complete.
+
+---
+
+## Day 0.5 — Copy & Structure Lock (MANDATORY)
+
+Goal: Eliminate wording and structure drift before any visuals.
+
+This step is about WORDS and STRUCTURE only.
+No visuals. No colors. No components.
+
+Deliverables:
+- [x] Confirm the only 5 screens:
+  - Welcome / Context
+  - Home
+  - Chat
+  - Paywall
+  - Edit Coach
+- [x] Lock app one-liner:
+  “Calm, opinionated AI coaching for the moment you feel stuck.”
+- [x] Lock Home title:
+  “What do you need right now?”
+- [x] Lock exact coach names:
+  - Focus Coach
+  - Decision Coach
+  - Reflection Coach
+- [x] Lock 1-line promise for each coach
+- [x] Lock paywall headline:
+  “Unlimited calm, when you need it.”
+
+Rules:
+- No alternative wording
+- No brainstorming
+- No synonyms
+- Words chosen here are final
+
+Day 0.5 complete.  
+All copy is locked.  
+Design may not introduce new words.
+
+---
+
+## Day 1 — Wireframes & Layout (NO COPY CHANGES)
+
+Goal: Translate locked copy and structure into layout without introducing ideas.
+
+Rules:
+- No new text
+- No new screens
+- No feature discussions
+- Layout only
+
+Deliverables:
+- [x] Wireframes for exactly 5 screens
+- [x] Calm spacing and hierarchy
+- [x] Home screen fits without scrolling
+- [x] Coach cards feel distinct but consistent
+
+Day 1 complete.  
+All 5 screens wireframed.  
+No new copy introduced.  
+No scrolling required on Home screen.
+
+---
+
+## Day 2 — Coach Behavior (CORE PRODUCT)
+
+Goal: Design behavior, not intelligence.
+
+Deliverables:
+- [x] Global Coaching Constitution (immutable)
+- [x] Focus Coach system prompt + opening message + never rules
+- [x] Decision Coach system prompt + opening message + never rules
+- [x] Reflection Coach system prompt + opening message + never rules
+
+Locked Files:
+- 06_GLOBAL_COACHING_CONSTITUTION.md
+- 07_FOCUS_COACH_PROMPT.md
+- 08_DECISION_COACH_PROMPT.md
+- 09_REFLECTION_COACH_PROMPT.md
+
+Rules:
+- Coaches do not overlap in role
+- Coaches do not explain themselves
+- Behavior is locked before integration
+
+Day 2 complete.
+
+---
+
+## Day 3 — App Flow & Skeleton
+
+### Step 1 — Routing & Monetization Logic (LOCKED)
+
+Goal: Define app behavior before code.
+
+Locked Behavior:
+- App always opens to Focus Coach
+- First assistant message appears immediately
+- Coach switching is manual (no auto-routing in MVP)
+- All coaches available in free tier
+- Free tier has limited messages per day
+- No visible counters or warnings
+- Paywall appears only when limit is exceeded and assistant is about to reply
+- If paywall is dismissed, conversation pauses until next day
+
+One-line flow:
+Open → Focus Coach → clarity → limit → calm paywall → choice
+
+Step locked. Skeleton can be built safely.
+
+---
+
+### Step 2 — App Skeleton (IMPLEMENTATION)
+
+Goal: Express locked behavior in code without logic.
+
+Deliverables:
+- [ ] App shell
+- [ ] Navigation wired
+- [ ] Static Home screen
+- [ ] Static Chat screen
+- [ ] Static Paywall screen
+
+Rules:
+- No AI calls
+- No RevenueCat yet
+- No business logic
+- Structure only
+
+---
+
+## Day 4 — Real Chat Integration
+
+Goal: Make conversation real while preserving behavior.
+
+Deliverables:
+- [ ] OpenAI integration
+- [ ] System prompt injection per coach
+- [ ] Opening message injection
+- [ ] User context injection
+- [ ] Loading states
+- [ ] Error handling
+
+Rules:
+- Prompts are not edited
+- Behavior > performance
+
+---
+
+## Day 5 — Monetization Integration
+
+Goal: Make payment feel inevitable, not coercive.
+
+Deliverables:
+- [ ] RevenueCat integrated
+- [ ] Daily free limits enforced
+- [ ] Paywall triggers correctly
+- [ ] Subscription unlocks unlimited messages
+
+Rules:
+- No urgency language
+- No dark patterns
+- No visible counters
+
+---
+
+## Day 6 — Edit Coach (Premium)
+
+Goal: Allow personalization without chaos.
+
+Deliverables:
+- [ ] Fork coach flow
+- [ ] Premium gate
+- [ ] Edited coach usable in chat
+
+Rules:
+- No prompt playground
+- Edit is controlled and constrained
+
+---
+
+## Day 7 — Polish & Finish
+
+Goal: Make the app feel inevitable.
+
+Deliverables:
+- [ ] Typography
+- [ ] Spacing
+- [ ] Empty states
+- [ ] Error states
+- [ ] App feels calm and finished
+
+---
+
+## Day 8 — Demo Video
+
+Goal: Communicate value in under 2 minutes.
+
+Deliverables:
+- [ ] Script written
+- [ ] Screen recording
+- [ ] Final cut (≤ 2 minutes)
+
+Focus:
+- First 30 seconds
+- Focus Coach experience
+- Calm monetization moment
+
+---
+
+## Day 9 — Submission Writing
+
+Deliverables:
+- [ ] Problem statement
+- [ ] Why 3 coaches
+- [ ] Behavior-first design rationale
+- [ ] Monetization logic
+- [ ] Roadmap (auto-routing, sharing later)
+
+---
+
+## Day 10 — Final Pass & Submission
+
+Deliverables:
+- [ ] App installs cleanly
+- [ ] No crashes
+- [ ] Links work
+- [ ] Demo video uploaded
+- [ ] Devpost submission complete
