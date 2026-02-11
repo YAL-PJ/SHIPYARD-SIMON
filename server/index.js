@@ -245,6 +245,11 @@ createServer(async (request, response) => {
     return;
   }
 
+  if (request.method === "GET" && request.url === "/health") {
+    sendJson(response, 200, { status: "ok" });
+    return;
+  }
+
   if (request.method !== "POST" || request.url !== "/api/coach-reply") {
     sendJson(response, 404, { error: "Not found" });
     return;
