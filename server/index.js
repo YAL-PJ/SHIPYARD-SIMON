@@ -244,6 +244,27 @@ const normalizeSentence = (value, fallback) => {
   return /[.!?]$/.test(capped) ? capped : `${capped}.`;
 };
 
+
+const extractLikelyJson = (value) => {
+  const trimmed = typeof value === "string" ? value.trim() : "";
+  if (!trimmed) {
+    return "";
+  }
+
+  const fencedMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (fencedMatch && fencedMatch[1]) {
+    return fencedMatch[1].trim();
+  }
+
+  const firstBrace = trimmed.indexOf("{");
+  const lastBrace = trimmed.lastIndexOf("}");
+  if (firstBrace >= 0 && lastBrace > firstBrace) {
+    return trimmed.slice(firstBrace, lastBrace + 1);
+  }
+
+  return trimmed;
+};
+
 const validateOutcome = (coach, parsedOutcome) => {
   if (!parsedOutcome || typeof parsedOutcome !== "object") {
     return null;
@@ -310,8 +331,9 @@ Return JSON only.`,
   }
 
   let parsed;
+  const jsonCandidate = extractLikelyJson(raw);
   try {
-    parsed = JSON.parse(raw);
+    parsed = JSON.parse(jsonCandidate);
   } catch {
     throw new HttpError(502, "Outcome extraction failed");
   }

@@ -1,0 +1,51 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+const ANALYTICS_KEY = "shipyard.analytics.events";
+const MAX_EVENTS = 400;
+
+export type AnalyticsEvent = {
+  id: string;
+  name: string;
+  createdAt: string;
+  payload?: Record<string, string | number | boolean | null | undefined>;
+};
+
+const createId = () =>
+  `event-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+const parseEvents = (value: string | null) => {
+  if (!value) {
+    return [] as AnalyticsEvent[];
+  }
+
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return Array.isArray(parsed) ? (parsed as AnalyticsEvent[]) : [];
+  } catch {
+    return [] as AnalyticsEvent[];
+  }
+};
+
+export const trackEvent = async (
+  name: string,
+  payload?: AnalyticsEvent["payload"],
+) => {
+  try {
+    const existing = parseEvents(await AsyncStorage.getItem(ANALYTICS_KEY));
+    const next: AnalyticsEvent = {
+      id: createId(),
+      name,
+      createdAt: new Date().toISOString(),
+      payload,
+    };
+
+    const merged = [next, ...existing].slice(0, MAX_EVENTS);
+    await AsyncStorage.setItem(ANALYTICS_KEY, JSON.stringify(merged));
+  } catch {
+    // non-blocking
+  }
+};
+
+export const getTrackedEvents = async () => {
+  return parseEvents(await AsyncStorage.getItem(ANALYTICS_KEY));
+};

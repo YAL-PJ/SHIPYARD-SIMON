@@ -9,6 +9,7 @@ import {
   TimelineItem,
   WeeklySummaryCard,
 } from "../types/progress";
+import { trackEvent } from "./analytics";
 
 const OUTCOMES_KEY = "shipyard.outcomes";
 const HISTORY_KEY = "shipyard.sessionHistory";
@@ -296,6 +297,12 @@ export const saveSessionWithOutcome = async ({
 
   await maybeCreateWeeklySummary(nextOutcomes);
 
+  await trackEvent("session_saved", {
+    coach,
+    outcome_kind: outcomeCard.data.kind,
+    used_outcome_override: Boolean(outcomeOverride),
+  });
+
   return outcomeCard;
 };
 
@@ -309,6 +316,14 @@ export const updateOutcomeCard = async (
   );
 
   await AsyncStorage.setItem(OUTCOMES_KEY, JSON.stringify(nextOutcomes));
+
+  const updated = nextOutcomes.find((entry) => entry.id === outcomeId);
+  if (updated) {
+    await trackEvent("outcome_updated", {
+      outcome_kind: updated.data.kind,
+      coach: updated.coach,
+    });
+  }
 };
 
 export const archiveOutcomeCard = async (outcomeId: string) => {
@@ -316,10 +331,18 @@ export const archiveOutcomeCard = async (outcomeId: string) => {
     ...entry,
     archivedAt: new Date().toISOString(),
   }));
+
+  await trackEvent("outcome_archived", { outcome_id: outcomeId });
 };
 
 export const deleteOutcomeCard = async (outcomeId: string) => {
   const outcomes = await getOutcomeCards();
+  const deleted = outcomes.find((entry) => entry.id === outcomeId);
   const nextOutcomes = outcomes.filter((entry) => entry.id !== outcomeId);
   await AsyncStorage.setItem(OUTCOMES_KEY, JSON.stringify(nextOutcomes));
+
+  await trackEvent("outcome_deleted", {
+    outcome_id: outcomeId,
+    outcome_kind: deleted?.data.kind ?? null,
+  });
 };

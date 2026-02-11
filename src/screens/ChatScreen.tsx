@@ -24,6 +24,7 @@ import {
   isChatPausedForToday,
 } from "../storage/dailyLimit";
 import { saveSessionWithOutcome } from "../storage/progress";
+import { trackEvent } from "../storage/analytics";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Chat">;
 
@@ -198,6 +199,12 @@ export const ChatScreen = ({ navigation, route }: Props) => {
       messages: messagesToPersist,
     });
 
+    await trackEvent("outcome_extraction_result", {
+      coach,
+      used_ai_outcome: Boolean(aiOutcome),
+      used_fallback_outcome: !aiOutcome,
+    });
+
     await saveSessionWithOutcome({
       coach,
       startedAt: sessionStartedAtRef.current,
@@ -342,8 +349,14 @@ export const ChatScreen = ({ navigation, route }: Props) => {
   };
 
   const handleCloseSession = async () => {
+    if (!draftOutcome) {
+      await trackEvent("session_close_blocked", { coach, reason: "missing_outcome" });
+      return;
+    }
+
     setIsClosingSession(true);
     await persistSession(messagesRef.current);
+    await trackEvent("session_closed", { coach, outcome_kind: draftOutcome.kind });
     setIsClosingSession(false);
     navigation.navigate("Progress");
   };
