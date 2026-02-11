@@ -1,4 +1,5 @@
-const { readFileSync } = require("node:fs");
+const { readFileSync, existsSync } = require("node:fs");
+const { mkdir, readFile, writeFile } = require("node:fs/promises");
 const { createServer } = require("node:http");
 const { join } = require("node:path");
 
@@ -13,6 +14,8 @@ const OUTCOME_MAX_TOKENS = 180;
 const REPORT_MAX_TOKENS = 220;
 const MAX_HISTORY_MESSAGES = 24;
 const PORT = Number(process.env.PORT || 8787);
+const ANALYTICS_DIR = join(__dirname, "data");
+const ANALYTICS_FILE = join(ANALYTICS_DIR, "analytics-events.json");
 
 const COACH_LABELS = new Set([
   "Focus Coach",
@@ -419,6 +422,55 @@ const getSessionReport = async ({ coach, messages, outcome }) => {
   };
 };
 
+
+const parseJsonArray = (value) => {
+  if (!value) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const loadAnalyticsEvents = async () => {
+  if (!existsSync(ANALYTICS_FILE)) {
+    return [];
+  }
+
+  const raw = await readFile(ANALYTICS_FILE, "utf8");
+  return parseJsonArray(raw);
+};
+
+const persistAnalyticsEvents = async (events) => {
+  await mkdir(ANALYTICS_DIR, { recursive: true });
+  await writeFile(ANALYTICS_FILE, JSON.stringify(events.slice(-2000), null, 2));
+};
+
+const summarizeAnalyticsEvents = (events) => {
+  const names = [
+    "session_saved",
+    "session_closed",
+    "outcome_extraction_result",
+    "session_report_extraction_result",
+    "report_feedback_submitted",
+  ];
+
+  const metrics = names.reduce((acc, name) => {
+    acc[name] = events.filter((event) => event && event.name === name).length;
+    return acc;
+  }, {});
+
+  return {
+    total: events.length,
+    metrics,
+    latestEventAt: events[events.length - 1]?.createdAt || null,
+  };
+};
+
 const parsePayload = (rawBody) => {
   if (!rawBody) {
     throw new HttpError(400, "Missing request body");
@@ -459,6 +511,12 @@ createServer(async (request, response) => {
     return;
   }
 
+  if (request.method === "GET" && request.url === "/api/analytics-summary") {
+    const events = await loadAnalyticsEvents();
+    sendJson(response, 200, { summary: summarizeAnalyticsEvents(events) });
+    return;
+  }
+
   if (request.method !== "POST") {
     sendJson(response, 404, { error: "Not found" });
     return;
@@ -486,13 +544,36 @@ createServer(async (request, response) => {
       }
 
       const events = Array.isArray(parsedBody.events) ? parsedBody.events : [];
-      const accepted = events.filter((event) => event && typeof event.name === "string").length;
+      const validEvents = events.filter(
+        (event) =>
+          event &&
+          typeof event.name === "string" &&
+          typeof event.id === "string" &&
+          typeof event.createdAt === "string",
+      );
+
+      const existing = await loadAnalyticsEvents();
+      const existingIds = new Set(existing.map((event) => event.id));
+      const merged = [...existing];
+
+      validEvents.forEach((event) => {
+        if (!existingIds.has(event.id)) {
+          merged.push(event);
+          existingIds.add(event.id);
+        }
+      });
+
+      await persistAnalyticsEvents(merged);
 
       if (process.env.NODE_ENV !== "production") {
-        console.log(`[dev] analytics-events accepted=${accepted}`);
+        console.log(`[dev] analytics-events accepted=${validEvents.length} total=${merged.length}`);
       }
 
-      sendJson(response, 200, { accepted });
+      sendJson(response, 200, {
+        accepted: validEvents.length,
+        totalStored: merged.length,
+        summary: summarizeAnalyticsEvents(merged),
+      });
       return;
     }
 

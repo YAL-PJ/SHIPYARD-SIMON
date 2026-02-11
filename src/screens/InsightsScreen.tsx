@@ -6,16 +6,24 @@ import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../types/navigation";
 import { EventMetric, getOutcomeQualityMetrics } from "../storage/insights";
 import { getTrackedEvents, trackEvent } from "../storage/analytics";
-import { syncAnalyticsEvents } from "../ai/openai";
+import { fetchAnalyticsSummary, syncAnalyticsEvents } from "../ai/openai";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Insights">;
 
 export const InsightsScreen = (_: Props) => {
   const [metrics, setMetrics] = useState<EventMetric[]>([]);
   const [syncStatus, setSyncStatus] = useState<string>("Not synced");
+  const [serverSummary, setServerSummary] = useState<string>("Server summary unavailable");
 
   const loadMetrics = useCallback(async () => {
     setMetrics(await getOutcomeQualityMetrics());
+    const summary = await fetchAnalyticsSummary();
+    if (!summary) {
+      setServerSummary("Server summary unavailable");
+      return;
+    }
+
+    setServerSummary(`Stored ${summary.total ?? 0} events`);
   }, []);
 
   useFocusEffect(
@@ -26,9 +34,15 @@ export const InsightsScreen = (_: Props) => {
 
   const handleSync = async () => {
     const events = await getTrackedEvents();
-    const accepted = await syncAnalyticsEvents(events);
-    await trackEvent("analytics_synced", { accepted });
-    setSyncStatus(`Synced ${accepted} events`);
+    const result = await syncAnalyticsEvents(events);
+    await trackEvent("analytics_synced", {
+      accepted: result.accepted,
+      total_stored: result.totalStored,
+    });
+    setSyncStatus(`Synced ${result.accepted} events`);
+    if (result.summary) {
+      setServerSummary(`Stored ${result.summary.total ?? 0} events`);
+    }
     await loadMetrics();
   };
 
@@ -41,6 +55,7 @@ export const InsightsScreen = (_: Props) => {
           <Text style={styles.syncButtonText}>Sync analytics to server</Text>
         </TouchableOpacity>
         <Text style={styles.syncStatus}>{syncStatus}</Text>
+        <Text style={styles.syncStatus}>{serverSummary}</Text>
       </View>
       <FlatList
         data={metrics}

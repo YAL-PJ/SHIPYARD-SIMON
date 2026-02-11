@@ -27,8 +27,16 @@ type SessionReportResponse = {
   };
 };
 
+type AnalyticsSummary = {
+  total?: number;
+  latestEventAt?: string | null;
+  metrics?: Record<string, number>;
+};
+
 type AnalyticsSyncResponse = {
   accepted?: number;
+  totalStored?: number;
+  summary?: AnalyticsSummary;
 };
 
 const DEFAULT_API_BASE_URL = "http://localhost:8787";
@@ -65,6 +73,34 @@ const requestJson = async <T>(path: string, payload: unknown) => {
       },
       signal: controller.signal,
       body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    return (await response.json()) as T;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
+
+const requestGetJson = async <T>(path: string) => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => {
+    controller.abort();
+  }, REQUEST_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(`${getApiBaseUrl()}${path}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      signal: controller.signal,
     });
 
     if (!response.ok) {
@@ -150,5 +186,14 @@ export const syncAnalyticsEvents = async (events: Array<{
   payload?: Record<string, string | number | boolean | null | undefined>;
 }>) => {
   const body = await requestJson<AnalyticsSyncResponse>("/api/analytics-events", { events });
-  return body?.accepted ?? 0;
+  return {
+    accepted: body?.accepted ?? 0,
+    totalStored: body?.totalStored ?? 0,
+    summary: body?.summary ?? null,
+  };
+};
+
+export const fetchAnalyticsSummary = async () => {
+  const body = await requestGetJson<{ summary?: AnalyticsSummary }>("/api/analytics-summary");
+  return body?.summary ?? null;
 };
