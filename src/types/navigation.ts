@@ -6,4 +6,6 @@ export type RootStackParamList = {
   Chat: { coach: CoachLabel };
   Paywall: { coach: CoachLabel; source?: "chat" | "edit" | "home" };
   EditCoach: { coach: CoachLabel };
+  Progress: undefined;
+  History: undefined;
 };

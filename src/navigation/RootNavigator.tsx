@@ -7,6 +7,8 @@ import { HomeScreen } from "../screens/HomeScreen";
 import { ChatScreen } from "../screens/ChatScreen";
 import { PaywallScreen } from "../screens/PaywallScreen";
 import { EditCoachScreen } from "../screens/EditCoachScreen";
+import { ProgressScreen } from "../screens/ProgressScreen";
+import { HistoryScreen } from "../screens/HistoryScreen";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -36,6 +38,16 @@ export const RootNavigator = () => {
       <Stack.Screen
         name="EditCoach"
         component={EditCoachScreen}
+        options={{ title: "" }}
+      />
+      <Stack.Screen
+        name="Progress"
+        component={ProgressScreen}
+        options={{ title: "" }}
+      />
+      <Stack.Screen
+        name="History"
+        component={HistoryScreen}
         options={{ title: "" }}
       />
     </Stack.Navigator>
