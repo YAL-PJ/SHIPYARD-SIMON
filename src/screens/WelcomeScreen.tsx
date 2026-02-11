@@ -49,11 +49,11 @@ export const WelcomeScreen = ({ navigation }: Props) => {
       >
         <View style={styles.heroSection}>
           <View style={styles.badge}>
-            <Text style={styles.badgeText}>SHIPYARD • PERSONAL COACH</Text>
+            <Text style={styles.badgeText}>MARA • PERSONAL COACH</Text>
           </View>
           <Text style={styles.title}>Find your next clear move.</Text>
           <Text style={styles.subtitle}>
-            When you feel overwhelmed, Simon helps you slow down, sort priorities,
+            When you feel overwhelmed, Mara helps you slow down, sort priorities,
             and choose one action that matters.
           </Text>
         </View>
