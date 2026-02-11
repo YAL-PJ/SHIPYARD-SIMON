@@ -51,7 +51,7 @@ export const PortalScreen = (_: Props) => {
       await trackEvent(ANALYTICS_EVENT.CALENDAR_CONNECT_REQUESTED);
       Alert.alert(
         "Calendar connector consent",
-        "You are allowing MARA to read your provided iCal feed and summarize schedule constraints for coaching context. You can disconnect anytime.",
+        "You are allowing KAVANAH to read your provided iCal feed and summarize schedule constraints for coaching context. You can disconnect anytime.",
         [
           {
             text: "Decline",

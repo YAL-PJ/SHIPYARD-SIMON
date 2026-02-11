@@ -97,7 +97,7 @@ export const HomeScreen = ({ navigation }: Props) => {
   return (
     <View style={styles.container}>
       <View style={styles.topSection}>
-        <Text style={styles.eyebrow}>MARA</Text>
+        <Text style={styles.eyebrow}>KAVANAH</Text>
         <Text style={styles.title}>One calm next step</Text>
         <Text style={styles.subtitle}>
           A coaching system: session to outcome, timeline, reports, memory, and long-term growth.

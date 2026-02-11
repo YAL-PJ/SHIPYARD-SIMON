@@ -13,7 +13,7 @@ export const SafetyScreen = (_: Props) => {
     <View style={styles.container}>
       <Text style={styles.title}>Coaching boundaries</Text>
       <Text style={styles.body}>
-        Mara is a coaching companion for clarity, decisions, and reflection. It is not therapy,
+        Kavanah is a coaching companion for clarity, decisions, and reflection. It is not therapy,
         emergency support, or medical/legal/financial advice.
       </Text>
 
