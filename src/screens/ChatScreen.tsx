@@ -7,13 +7,19 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 
 import { fetchCoachReply } from "../ai/openai";
+import { useMonetization } from "../context/MonetizationContext";
 import { COACH_OPENING_MESSAGES } from "../ai/prompts";
 import { ChatMessage } from "../types/chat";
 import { RootStackParamList } from "../types/navigation";
 import { getUserContext } from "../storage/preferences";
+import {
+  consumeDailyFreeMessage,
+  isChatPausedForToday,
+} from "../storage/dailyLimit";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Chat">;
 
@@ -43,8 +49,9 @@ const MessageContent = ({ message }: MessageContentProps) => {
   );
 };
 
-export const ChatScreen = ({ route }: Props) => {
+export const ChatScreen = ({ navigation, route }: Props) => {
   const { coach } = route.params;
+  const { isSubscribed } = useMonetization();
   const listRef = useRef<FlatList<ChatMessage>>(null);
   const openingMessage = useMemo(
     () => COACH_OPENING_MESSAGES[coach],
@@ -54,6 +61,8 @@ export const ChatScreen = ({ route }: Props) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [hasPendingReply, setHasPendingReply] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
 
   useEffect(() => {
     setMessages([
@@ -66,10 +75,78 @@ export const ChatScreen = ({ route }: Props) => {
     ]);
   }, [openingMessage]);
 
+  useFocusEffect(
+    React.useCallback(() => {
+      const syncPause = async () => {
+        if (isSubscribed) {
+          setIsPaused(false);
+          return;
+        }
+
+        const paused = await isChatPausedForToday();
+        setIsPaused(paused);
+      };
+
+      void syncPause();
+    }, [isSubscribed]),
+  );
+
+  useEffect(() => {
+    if (!hasPendingReply || !isSubscribed || isSending) {
+      return;
+    }
+
+    const completePendingReply = async () => {
+      const latestMessages = messages;
+
+      if (latestMessages.length === 0) {
+        return;
+      }
+
+      setIsSending(true);
+
+      try {
+        const userContext = await getUserContext();
+        const reply = await fetchCoachReply({
+          coach,
+          messages: latestMessages,
+          userContext,
+        });
+
+        const assistantContent = reply || ERROR_MESSAGE;
+
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: createMessageId(),
+            role: "assistant",
+            content: assistantContent,
+            isError: !reply,
+          },
+        ]);
+      } catch {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: createMessageId(),
+            role: "assistant",
+            content: ERROR_MESSAGE,
+            isError: true,
+          },
+        ]);
+      } finally {
+        setHasPendingReply(false);
+        setIsSending(false);
+      }
+    };
+
+    void completePendingReply();
+  }, [coach, hasPendingReply, isSending, isSubscribed, messages]);
+
   const handleSend = async () => {
     const trimmed = input.trim();
 
-    if (!trimmed || isSending) {
+    if (!trimmed || isSending || isPaused) {
       return;
     }
 
@@ -83,6 +160,17 @@ export const ChatScreen = ({ route }: Props) => {
 
     setInput("");
     setMessages(nextMessages);
+
+    if (!isSubscribed) {
+      const usage = await consumeDailyFreeMessage();
+
+      if (!usage.isWithinLimit) {
+        setHasPendingReply(true);
+        navigation.navigate("Paywall", { coach });
+        return;
+      }
+    }
+
     setIsSending(true);
 
     try {
@@ -104,7 +192,7 @@ export const ChatScreen = ({ route }: Props) => {
           isError: !reply,
         },
       ]);
-    } catch (error) {
+    } catch {
       setMessages((prev) => [
         ...prev,
         {
@@ -119,7 +207,8 @@ export const ChatScreen = ({ route }: Props) => {
     }
   };
 
-  const isSendDisabled = isSending || input.trim().length === 0;
+  const isSendDisabled =
+    isSending || isPaused || input.trim().length === 0 || hasPendingReply;
 
   return (
     <View style={styles.container}>
@@ -146,7 +235,7 @@ export const ChatScreen = ({ route }: Props) => {
           style={styles.input}
           value={input}
           onChangeText={setInput}
-          editable={!isSending}
+          editable={!isSending && !isPaused && !hasPendingReply}
         />
         <TouchableOpacity
           accessibilityRole="button"

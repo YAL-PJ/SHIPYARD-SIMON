@@ -4,6 +4,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StyleSheet, View } from "react-native";
 
 import { RootNavigator } from "./src/navigation/RootNavigator";
+import { MonetizationProvider } from "./src/context/MonetizationContext";
 import { getHasSeenWelcome } from "./src/storage/preferences";
 
 export default function App() {
@@ -55,9 +56,11 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <NavigationContainer initialState={initialState}>
-        <RootNavigator />
-      </NavigationContainer>
+      <MonetizationProvider>
+        <NavigationContainer initialState={initialState}>
+          <RootNavigator />
+        </NavigationContainer>
+      </MonetizationProvider>
     </SafeAreaProvider>
   );
 }
