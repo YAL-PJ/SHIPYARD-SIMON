@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { FlatList, Pressable, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import { Alert, FlatList, Pressable, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 
@@ -7,13 +7,16 @@ import { RootStackParamList } from "../types/navigation";
 import { getInstructionPacks, toggleInstructionPack } from "../storage/instructionPacks";
 import {
   ConnectorConfig,
+  disconnectConnector,
   getConnectors,
   setConnectorConnected,
+  setConnectorConsent,
   setConnectorContextHint,
   setConnectorSourceUrl,
   syncCalendarConnector,
 } from "../storage/connectors";
 import { trackEvent } from "../storage/analytics";
+import { ANALYTICS_EVENT } from "../types/analytics";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Portal">;
 
@@ -41,17 +44,52 @@ export const PortalScreen = (_: Props) => {
     }, [load]),
   );
 
+  const handleConsentToggle = async (connector: ConnectorConfig, value: boolean) => {
+    if (value) {
+      await trackEvent(ANALYTICS_EVENT.CALENDAR_CONNECT_REQUESTED);
+      Alert.alert(
+        "Calendar connector consent",
+        "You are allowing MARA to read your provided iCal feed and summarize schedule constraints for coaching context. You can disconnect anytime.",
+        [
+          {
+            text: "Decline",
+            style: "cancel",
+            onPress: () => {
+              void setConnectorConsent(connector.id, "denied").then(load);
+            },
+          },
+          {
+            text: "I consent",
+            onPress: () => {
+              void setConnectorConsent(connector.id, "granted").then(async () => {
+                await setConnectorConnected(connector.id, true);
+                await trackEvent(ANALYTICS_EVENT.CALENDAR_CONNECTED);
+                await load();
+              });
+            },
+          },
+        ],
+      );
+      return;
+    }
+
+    await disconnectConnector(connector.id);
+    await trackEvent(ANALYTICS_EVENT.CALENDAR_DISCONNECTED);
+    await load();
+  };
+
   const handleCalendarSync = async () => {
     const result = await syncCalendarConnector();
 
     if (!result.ok) {
       setSyncMessage(result.error);
-      await trackEvent("calendar_sync_failed", { reason: result.error });
+      await trackEvent(ANALYTICS_EVENT.CALENDAR_SYNC_FAILED, { reason: result.error });
+      await load();
       return;
     }
 
     setSyncMessage(`Calendar synced at ${new Date(result.syncedAt).toLocaleString()}.`);
-    await trackEvent("calendar_sync_succeeded", { summary: result.summary.slice(0, 140) });
+    await trackEvent(ANALYTICS_EVENT.CALENDAR_SYNC_SUCCEEDED, { summary: result.summary.slice(0, 140) });
     await load();
   };
 
@@ -59,13 +97,13 @@ export const PortalScreen = (_: Props) => {
     <View style={styles.container}>
       <Text style={styles.title}>Advanced Portal</Text>
       <Text style={styles.subtitle}>
-        Enable instruction packs to shape deeper, premium coaching behavior over time.
+        Premium depth: persistent instruction packs and real connector context with explicit consent.
       </Text>
 
       <View style={styles.connectorSection}>
-        <Text style={styles.connectorTitle}>Advanced context connectors</Text>
+        <Text style={styles.connectorTitle}>Calendar connector</Text>
         <Text style={styles.connectorSubtitle}>
-          Connect one source to supply explicit constraints the coaches should respect.
+          Connect an iCal feed to inject synced schedule constraints. Manual notes stay separate.
         </Text>
         {connectors.map((connector) => (
           <View key={connector.id} style={styles.connectorCard}>
@@ -73,10 +111,11 @@ export const PortalScreen = (_: Props) => {
               <View style={styles.textWrap}>
                 <Text style={styles.name}>{connector.name}</Text>
                 <Text style={styles.description}>{connector.description}</Text>
+                <Text style={styles.consentMeta}>Consent: {connector.consentState}</Text>
               </View>
               <Switch
                 value={connector.connected}
-                onValueChange={(value) => void setConnectorConnected(connector.id, value).then(load)}
+                onValueChange={(value) => void handleConsentToggle(connector, value)}
               />
             </View>
 
@@ -85,6 +124,7 @@ export const PortalScreen = (_: Props) => {
               value={connector.externalSourceUrl}
               placeholder="iCal URL: https://example.com/calendar.ics"
               placeholderTextColor="#94a3b8"
+              editable={connector.consentState === "granted"}
               onEndEditing={(event) =>
                 void setConnectorSourceUrl(connector.id, event.nativeEvent.text).then(load)
               }
@@ -98,7 +138,7 @@ export const PortalScreen = (_: Props) => {
             <TextInput
               style={styles.connectorInput}
               value={connector.contextHint}
-              placeholder="Optional manual note: protect deep work mornings."
+              placeholder="Manual note (separate from synced context)."
               placeholderTextColor="#94a3b8"
               multiline
               onEndEditing={(event) =>
@@ -118,7 +158,9 @@ export const PortalScreen = (_: Props) => {
             {connector.lastSyncedAt ? (
               <Text style={styles.syncMeta}>Last synced: {new Date(connector.lastSyncedAt).toLocaleString()}</Text>
             ) : null}
-            {connector.syncedSummary ? <Text style={styles.syncMeta}>{connector.syncedSummary}</Text> : null}
+            {connector.syncedSummary ? <Text style={styles.syncMeta}>Synced summary: {connector.syncedSummary}</Text> : null}
+            {connector.contextHint ? <Text style={styles.syncMeta}>Manual note: {connector.contextHint}</Text> : null}
+            {connector.syncError ? <Text style={styles.errorMeta}>Sync error: {connector.syncError}</Text> : null}
           </View>
         ))}
 
@@ -186,7 +228,9 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
   },
   syncButtonText: { color: "#ffffff", fontWeight: "700", fontSize: 12 },
+  consentMeta: { color: "#64748b", fontSize: 12, lineHeight: 16 },
   syncMeta: { color: "#475569", fontSize: 12, lineHeight: 18 },
+  errorMeta: { color: "#b91c1c", fontSize: 12, lineHeight: 18 },
   syncNotice: { color: "#334155", fontSize: 12 },
 
   card: {

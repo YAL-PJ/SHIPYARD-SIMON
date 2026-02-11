@@ -7,6 +7,7 @@ import { RootStackParamList } from "../types/navigation";
 import { EventMetric, getOutcomeQualityMetrics } from "../storage/insights";
 import { getTrackedEvents, trackEvent } from "../storage/analytics";
 import { fetchAnalyticsSummary, syncAnalyticsEvents } from "../ai/openai";
+import { ANALYTICS_EVENT } from "../types/analytics";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Insights">;
 
@@ -24,7 +25,7 @@ export const InsightsScreen = (_: Props) => {
     }
 
     setServerSummary(
-      `Stored ${summary.total ?? 0} events • installs ${summary.installs?.total ?? 0} • D7 retained ${summary.installs?.retainedD7 ?? 0}`
+      `Save rate ${(summary.kpis?.outcomeSaveRate ?? 0) * 100}% • Focus completion ${(summary.kpis?.focusCompletionRate ?? 0) * 100}% • Report acceptance ${(summary.kpis?.reportQualityAcceptanceRate ?? 0) * 100}% • D7 ${summary.installs?.retainedD7 ?? 0} • D30 ${summary.installs?.retainedD30 ?? 0}`,
     );
   }, []);
 
@@ -37,14 +38,14 @@ export const InsightsScreen = (_: Props) => {
   const handleSync = async () => {
     const events = await getTrackedEvents();
     const result = await syncAnalyticsEvents(events);
-    await trackEvent("analytics_synced", {
+    await trackEvent(ANALYTICS_EVENT.ANALYTICS_SYNCED, {
       accepted: result.accepted,
       total_stored: result.totalStored,
     });
     setSyncStatus(`Synced ${result.accepted} events`);
     if (result.summary) {
       setServerSummary(
-        `Stored ${result.summary.total ?? 0} events • installs ${result.summary.installs?.total ?? 0} • D7 retained ${result.summary.installs?.retainedD7 ?? 0}`
+        `Save rate ${(result.summary.kpis?.outcomeSaveRate ?? 0) * 100}% • Focus completion ${(result.summary.kpis?.focusCompletionRate ?? 0) * 100}% • Report acceptance ${(result.summary.kpis?.reportQualityAcceptanceRate ?? 0) * 100}% • D7 ${result.summary.installs?.retainedD7 ?? 0} • D30 ${result.summary.installs?.retainedD30 ?? 0}`,
       );
     }
     await loadMetrics();
@@ -52,8 +53,8 @@ export const InsightsScreen = (_: Props) => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Quality Insights</Text>
-      <Text style={styles.subtitle}>Internal signal checks for outcome quality and retention loops.</Text>
+      <Text style={styles.title}>Quality Dashboard</Text>
+      <Text style={styles.subtitle}>Internal KPI checks for reliability, report quality, and retention.</Text>
       <View style={styles.syncRow}>
         <TouchableOpacity style={styles.syncButton} onPress={handleSync}>
           <Text style={styles.syncButtonText}>Sync analytics to server</Text>

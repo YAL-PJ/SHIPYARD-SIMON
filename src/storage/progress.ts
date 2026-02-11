@@ -12,6 +12,7 @@ import {
   WeeklySummaryCard,
 } from "../types/progress";
 import { trackEvent } from "./analytics";
+import { ANALYTICS_EVENT } from "../types/analytics";
 import { syncMemoryFromOutcome } from "./memory";
 
 const OUTCOMES_KEY = "shipyard.outcomes";
@@ -276,11 +277,16 @@ const buildWeeklySummaryText = (outcomes: SessionOutcomeCard[]) => {
     .sort((a, b) => b[1] - a[1])
     .find(([, count]) => count >= 2)?.[0];
 
+  const transitions = outcomes
+    .slice(0, 4)
+    .map((entry) => entry.coach.replace(" Coach", ""))
+    .join(" → ");
+
   if (topTheme) {
-    return `This week you recorded ${outcomes.length} outcomes. ${dominantMode} carried most of your attention, with recurring emphasis on ${topTheme}.`;
+    return `This week you recorded ${outcomes.length} outcomes. ${dominantMode} carried most of your attention, recurring theme: ${topTheme}. Coaching flow: ${transitions}.`;
   }
 
-  return `This week you recorded ${outcomes.length} outcomes. ${dominantMode} carried most of your attention.`;
+  return `This week you recorded ${outcomes.length} outcomes. ${dominantMode} carried most of your attention. Coaching flow this week: ${transitions}.`;
 };
 
 const maybeCreateWeeklySummary = async (outcomes: SessionOutcomeCard[]) => {
@@ -468,13 +474,13 @@ export const saveSessionWithOutcome = async ({
   await maybeCreateWeeklySummary(nextOutcomes);
   await syncMemoryFromOutcome(outcomeCard, nextOutcomes);
 
-  await trackEvent("session_saved", {
+  await trackEvent(ANALYTICS_EVENT.SESSION_SAVED, {
     coach,
     outcome_kind: outcomeCard.data.kind,
     used_outcome_override: Boolean(outcomeOverride),
   });
 
-  await trackEvent("session_report_saved", {
+  await trackEvent(ANALYTICS_EVENT.SESSION_REPORT_SAVED, {
     coach,
     outcome_kind: outcomeCard.data.kind,
     report_id: reportCard.id,
@@ -499,13 +505,13 @@ export const updateOutcomeCard = async (
 
   const updated = nextOutcomes.find((entry) => entry.id === outcomeId);
   if (updated) {
-    await trackEvent("outcome_updated", {
+    await trackEvent(ANALYTICS_EVENT.OUTCOME_UPDATED, {
       outcome_kind: updated.data.kind,
       coach: updated.coach,
     });
 
     if (updated.data.kind === "focus" && updated.data.isCompleted) {
-      await trackEvent("outcome_focus_completed", {
+      await trackEvent(ANALYTICS_EVENT.OUTCOME_FOCUS_COMPLETED, {
         outcome_id: updated.id,
       });
     }
@@ -518,7 +524,7 @@ export const archiveOutcomeCard = async (outcomeId: string) => {
     archivedAt: new Date().toISOString(),
   }));
 
-  await trackEvent("outcome_archived", { outcome_id: outcomeId });
+  await trackEvent(ANALYTICS_EVENT.OUTCOME_ARCHIVED, { outcome_id: outcomeId });
 };
 
 export const deleteOutcomeCard = async (outcomeId: string) => {
@@ -527,7 +533,7 @@ export const deleteOutcomeCard = async (outcomeId: string) => {
   const nextOutcomes = outcomes.filter((entry) => entry.id !== outcomeId);
   await AsyncStorage.setItem(OUTCOMES_KEY, JSON.stringify(nextOutcomes));
 
-  await trackEvent("outcome_deleted", {
+  await trackEvent(ANALYTICS_EVENT.OUTCOME_DELETED, {
     outcome_id: outcomeId,
     outcome_kind: deleted?.data.kind ?? null,
   });
@@ -547,7 +553,7 @@ export const updateReportUsefulness = async (
 
   const updated = nextReports.find((entry) => entry.id === reportId);
   if (updated) {
-    await trackEvent("session_report_feedback", {
+    await trackEvent(ANALYTICS_EVENT.SESSION_REPORT_FEEDBACK, {
       report_id: reportId,
       feedback,
       coach: updated.coach,

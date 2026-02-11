@@ -13,6 +13,16 @@ const MAX_TOKENS = 200;
 const OUTCOME_MAX_TOKENS = 180;
 const REPORT_MAX_TOKENS = 220;
 const MAX_HISTORY_MESSAGES = 24;
+
+const EVENT = {
+  SESSION_SAVED: "session_saved",
+  SESSION_CLOSED: "session_closed",
+  OUTCOME_EXTRACTION_RESULT: "outcome_extraction_result",
+  SESSION_REPORT_EXTRACTION_RESULT: "session_report_extraction_result",
+  SESSION_REPORT_SAVED: "session_report_saved",
+  SESSION_REPORT_FEEDBACK: "session_report_feedback",
+};
+
 const PORT = Number(process.env.PORT || 8787);
 const ANALYTICS_DIR = join(__dirname, "data");
 const ANALYTICS_FILE = join(ANALYTICS_DIR, "analytics-events.json");
@@ -451,39 +461,42 @@ const persistAnalyticsEvents = async (events) => {
 };
 
 const summarizeAnalyticsEvents = (events) => {
-  const names = [
-    "session_saved",
-    "session_closed",
-    "outcome_extraction_result",
-    "session_report_extraction_result",
-    "session_report_feedback",
-  ];
+  const totalSessions = events.filter((event) => event?.name === EVENT.SESSION_SAVED).length;
+  const closedSessions = events.filter((event) => event?.name === EVENT.SESSION_CLOSED).length;
+  const focusSaved = events.filter(
+    (event) => event?.name === EVENT.SESSION_SAVED && event?.payload?.outcome_kind === "focus",
+  ).length;
+  const focusCompleted = events.filter((event) => event?.name === "outcome_focus_completed").length;
 
-  const metrics = names.reduce((acc, name) => {
-    acc[name] = events.filter((event) => event && event.name === name).length;
-    return acc;
-  }, {});
+  const reportsSaved = events.filter((event) => event?.name === EVENT.SESSION_REPORT_SAVED);
+  const acceptedReports = reportsSaved.filter((event) => event?.payload?.report_quality_status === "accepted_ai").length;
+  const fallbackReports = reportsSaved.filter((event) => event?.payload?.report_quality_status !== "accepted_ai").length;
+  const usefulReports = events.filter(
+    (event) => event?.name === EVENT.SESSION_REPORT_FEEDBACK && event?.payload?.feedback === "useful",
+  ).length;
 
-  const installEventsByInstall = events.reduce((acc, event) => {
+  const byInstall = events.reduce((acc, event) => {
     const installId = event?.payload?.install_id;
     if (typeof installId !== "string" || installId.length === 0) {
       return acc;
     }
 
     const createdAtMs = +new Date(event.createdAt || 0);
+    if (!Number.isFinite(createdAtMs)) {
+      return acc;
+    }
+
     if (!acc[installId]) {
       acc[installId] = [];
     }
-    if (Number.isFinite(createdAtMs)) {
-      acc[installId].push(createdAtMs);
-    }
+    acc[installId].push(createdAtMs);
 
     return acc;
   }, {});
 
-  const installIds = Object.keys(installEventsByInstall);
+  const installIds = Object.keys(byInstall);
   const retainedD7 = installIds.filter((installId) => {
-    const points = installEventsByInstall[installId].sort((a, b) => a - b);
+    const points = byInstall[installId].sort((a, b) => a - b);
     if (points.length < 2) {
       return false;
     }
@@ -492,12 +505,39 @@ const summarizeAnalyticsEvents = (events) => {
     return points.some((value) => value - first >= 7 * 24 * 60 * 60 * 1000);
   }).length;
 
+  const retainedD30 = installIds.filter((installId) => {
+    const points = byInstall[installId].sort((a, b) => a - b);
+    if (points.length < 2) {
+      return false;
+    }
+
+    const first = points[0];
+    return points.some((value) => value - first >= 30 * 24 * 60 * 60 * 1000);
+  }).length;
+
   return {
     total: events.length,
-    metrics,
+    kpis: {
+      outcomeSaveRate: totalSessions === 0 ? 0 : Number((closedSessions / totalSessions).toFixed(2)),
+      focusCompletionRate: focusSaved === 0 ? 0 : Number((focusCompleted / focusSaved).toFixed(2)),
+      reportQualityAcceptanceRate: reportsSaved.length === 0 ? 0 : Number((acceptedReports / reportsSaved.length).toFixed(2)),
+      reportFallbackRate: reportsSaved.length === 0 ? 0 : Number((fallbackReports / reportsSaved.length).toFixed(2)),
+      reportUsefulnessRate: reportsSaved.length === 0 ? 0 : Number((usefulReports / reportsSaved.length).toFixed(2)),
+    },
+    aggregates: {
+      sessionsSaved: totalSessions,
+      sessionsClosed: closedSessions,
+      reportsSaved: reportsSaved.length,
+      reportsAccepted: acceptedReports,
+      reportsFallback: fallbackReports,
+      reportUseful: usefulReports,
+      focusSaved,
+      focusCompleted,
+    },
     installs: {
       total: installIds.length,
       retainedD7,
+      retainedD30,
     },
     latestEventAt: events[events.length - 1]?.createdAt || null,
   };

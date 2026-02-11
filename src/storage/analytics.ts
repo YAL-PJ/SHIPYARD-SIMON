@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { AnalyticsEventName, AnalyticsPayload } from "../types/analytics";
 
 const ANALYTICS_KEY = "shipyard.analytics.events";
 const ANALYTICS_INSTALL_ID_KEY = "shipyard.analytics.installId";
@@ -6,9 +7,9 @@ const MAX_EVENTS = 400;
 
 export type AnalyticsEvent = {
   id: string;
-  name: string;
+  name: AnalyticsEventName;
   createdAt: string;
-  payload?: Record<string, string | number | boolean | null | undefined>;
+  payload?: AnalyticsPayload;
 };
 
 const createId = () =>
@@ -39,8 +40,8 @@ const parseEvents = (value: string | null) => {
 };
 
 export const trackEvent = async (
-  name: string,
-  payload?: AnalyticsEvent["payload"],
+  name: AnalyticsEventName,
+  payload?: AnalyticsPayload,
 ) => {
   try {
     const installId = await getInstallId();

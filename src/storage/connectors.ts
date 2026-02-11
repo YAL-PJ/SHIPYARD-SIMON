@@ -1,13 +1,18 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { ConnectorConsentState, ConnectorSyncOrigin } from "../types/portal";
 
 export type ConnectorConfig = {
   id: "calendar";
   name: string;
   description: string;
   connected: boolean;
+  consentState: ConnectorConsentState;
+  consentedAt: string | null;
   contextHint: string;
   externalSourceUrl: string;
   syncedSummary: string;
+  syncOrigin: ConnectorSyncOrigin;
+  syncError: string | null;
   lastSyncedAt: string | null;
 };
 
@@ -18,24 +23,28 @@ const DEFAULT_CONNECTORS: ConnectorConfig[] = [
   {
     id: "calendar",
     name: "Calendar Connector",
-    description: "Pull a lightweight weekly constraint summary from an external iCal feed URL.",
+    description: "Bring in your next-week schedule constraints so coaching advice stays realistic.",
     connected: false,
+    consentState: "not_requested",
+    consentedAt: null,
     contextHint: "",
     externalSourceUrl: "",
     syncedSummary: "",
+    syncOrigin: "manual",
+    syncError: null,
     lastSyncedAt: null,
   },
 ];
 
-const parseConnectors = (value: string | null) => {
+const parseConnectors = (value: string | null): ConnectorConfig[] => {
   if (!value) {
-    return DEFAULT_CONNECTORS;
+    return DEFAULT_CONNECTORS.map((entry) => ({ ...entry }));
   }
 
   try {
     const parsed = JSON.parse(value) as unknown;
     if (!Array.isArray(parsed)) {
-      return DEFAULT_CONNECTORS;
+      return DEFAULT_CONNECTORS.map((entry) => ({ ...entry }));
     }
 
     return DEFAULT_CONNECTORS.map((defaultEntry) => {
@@ -50,17 +59,21 @@ const parseConnectors = (value: string | null) => {
       return {
         ...defaultEntry,
         connected: Boolean(match.connected),
+        consentState: match.consentState === "granted" || match.consentState === "denied" ? match.consentState : "not_requested",
+        consentedAt: typeof match.consentedAt === "string" && match.consentedAt.length > 0 ? match.consentedAt : null,
         contextHint: typeof match.contextHint === "string" ? match.contextHint.slice(0, 220) : "",
         externalSourceUrl:
           typeof match.externalSourceUrl === "string" ? match.externalSourceUrl.trim().slice(0, 300) : "",
         syncedSummary:
           typeof match.syncedSummary === "string" ? match.syncedSummary.trim().slice(0, 320) : "",
+        syncOrigin: match.syncOrigin === "synced" ? "synced" : "manual",
+        syncError: typeof match.syncError === "string" && match.syncError.trim().length > 0 ? match.syncError.trim().slice(0, 220) : null,
         lastSyncedAt:
           typeof match.lastSyncedAt === "string" && match.lastSyncedAt.length > 0 ? match.lastSyncedAt : null,
       };
     });
   } catch {
-    return DEFAULT_CONNECTORS;
+    return DEFAULT_CONNECTORS.map((entry) => ({ ...entry }));
   }
 };
 
@@ -73,19 +86,35 @@ const saveConnectors = async (connectors: ConnectorConfig[]) => {
   await AsyncStorage.setItem(CONNECTORS_KEY, JSON.stringify(connectors));
 };
 
-export const setConnectorConnected = async (connectorId: ConnectorConfig["id"], connected: boolean) => {
+const updateConnector = async (
+  connectorId: ConnectorConfig["id"],
+  updater: (entry: ConnectorConfig) => ConnectorConfig,
+) => {
   const connectors = await getConnectors();
-  const next = connectors.map((entry) =>
-    entry.id === connectorId
-      ? {
-          ...entry,
-          connected,
-        }
-      : entry,
-  );
-
+  const next = connectors.map((entry) => (entry.id === connectorId ? updater(entry) : entry));
   await saveConnectors(next);
   return next;
+};
+
+export const setConnectorConsent = async (
+  connectorId: ConnectorConfig["id"],
+  consentState: ConnectorConsentState,
+) => {
+  const now = new Date().toISOString();
+  return updateConnector(connectorId, (entry) => ({
+    ...entry,
+    consentState,
+    consentedAt: consentState === "granted" ? now : entry.consentedAt,
+    connected: consentState === "granted" ? entry.connected : false,
+  }));
+};
+
+export const setConnectorConnected = async (connectorId: ConnectorConfig["id"], connected: boolean) => {
+  return updateConnector(connectorId, (entry) => ({
+    ...entry,
+    connected: entry.consentState === "granted" ? connected : false,
+    syncError: null,
+  }));
 };
 
 export const setConnectorContextHint = async (
@@ -93,19 +122,11 @@ export const setConnectorContextHint = async (
   contextHint: string,
 ) => {
   const normalized = contextHint.trim().replace(/\s+/g, " ").slice(0, 220);
-  const connectors = await getConnectors();
-
-  const next = connectors.map((entry) =>
-    entry.id === connectorId
-      ? {
-          ...entry,
-          contextHint: normalized,
-        }
-      : entry,
-  );
-
-  await saveConnectors(next);
-  return next;
+  return updateConnector(connectorId, (entry) => ({
+    ...entry,
+    contextHint: normalized,
+    syncOrigin: normalized.length > 0 ? "manual" : entry.syncOrigin,
+  }));
 };
 
 export const setConnectorSourceUrl = async (
@@ -113,19 +134,10 @@ export const setConnectorSourceUrl = async (
   sourceUrl: string,
 ) => {
   const normalized = sourceUrl.trim().slice(0, 300);
-  const connectors = await getConnectors();
-
-  const next = connectors.map((entry) =>
-    entry.id === connectorId
-      ? {
-          ...entry,
-          externalSourceUrl: normalized,
-        }
-      : entry,
-  );
-
-  await saveConnectors(next);
-  return next;
+  return updateConnector(connectorId, (entry) => ({
+    ...entry,
+    externalSourceUrl: normalized,
+  }));
 };
 
 const parseIcsDate = (value: string) => {
@@ -213,7 +225,7 @@ const buildCalendarSummary = (events: CalendarEvent[]) => {
 
   const upcoming = events.filter((event) => event.startAt >= start && event.startAt <= end);
   if (upcoming.length === 0) {
-    return "Synced calendar has no events in the next 7 days.";
+    return "Calendar sync found no events in the next 7 days.";
   }
 
   const dayCounts = upcoming.reduce<Record<string, number>>((acc, event) => {
@@ -247,6 +259,14 @@ export const syncCalendarConnector = async () => {
     return { ok: false as const, error: "Calendar connector not available." };
   }
 
+  if (connector.consentState !== "granted") {
+    return { ok: false as const, error: "Grant connector consent before syncing." };
+  }
+
+  if (!connector.connected) {
+    return { ok: false as const, error: "Connect calendar before syncing." };
+  }
+
   if (!connector.externalSourceUrl) {
     return { ok: false as const, error: "Add an iCal URL before syncing." };
   }
@@ -255,39 +275,49 @@ export const syncCalendarConnector = async () => {
   try {
     response = await fetch(connector.externalSourceUrl);
   } catch {
+    await updateConnector("calendar", (entry) => ({ ...entry, syncError: "Could not reach calendar source URL." }));
     return { ok: false as const, error: "Could not reach calendar source URL." };
   }
 
   if (!response.ok) {
-    return { ok: false as const, error: `Calendar source returned HTTP ${response.status}.` };
+    const error = `Calendar source returned HTTP ${response.status}.`;
+    await updateConnector("calendar", (entry) => ({ ...entry, syncError: error }));
+    return { ok: false as const, error };
   }
 
   const text = await response.text();
   if (!text.includes("BEGIN:VCALENDAR")) {
-    return { ok: false as const, error: "Source did not return a valid iCal calendar." };
+    const error = "Source did not return a valid iCal calendar.";
+    await updateConnector("calendar", (entry) => ({ ...entry, syncError: error }));
+    return { ok: false as const, error };
   }
 
   const events = parseCalendarEvents(text);
   const summary = buildCalendarSummary(events);
   const nowIso = new Date().toISOString();
 
-  const next = connectors.map((entry) =>
-    entry.id === "calendar"
-      ? {
-          ...entry,
-          syncedSummary: summary,
-          lastSyncedAt: nowIso,
-        }
-      : entry,
-  );
+  await updateConnector("calendar", (entry) => ({
+    ...entry,
+    syncedSummary: summary,
+    syncOrigin: "synced",
+    syncError: null,
+    lastSyncedAt: nowIso,
+  }));
 
-  await saveConnectors(next);
   return { ok: true as const, summary, syncedAt: nowIso };
+};
+
+export const disconnectConnector = async (connectorId: ConnectorConfig["id"]) => {
+  return updateConnector(connectorId, (entry) => ({
+    ...entry,
+    connected: false,
+    syncError: null,
+  }));
 };
 
 export const getConnectorContext = async () => {
   const connectors = await getConnectors();
-  const active = connectors.filter((entry) => entry.connected);
+  const active = connectors.filter((entry) => entry.connected && entry.consentState === "granted");
 
   if (active.length === 0) {
     return "";
@@ -297,11 +327,11 @@ export const getConnectorContext = async () => {
     const chunks = [];
 
     if (entry.syncedSummary.trim().length > 0) {
-      chunks.push(`- ${entry.name} sync: ${entry.syncedSummary.trim()}`);
+      chunks.push(`- ${entry.name} synced context: ${entry.syncedSummary.trim()}`);
     }
 
     if (entry.contextHint.trim().length > 0) {
-      chunks.push(`- ${entry.name} user note: ${entry.contextHint.trim()}`);
+      chunks.push(`- ${entry.name} manual context: ${entry.contextHint.trim()}`);
     }
 
     return chunks;
