@@ -245,6 +245,7 @@ export const ChatScreen = ({ navigation, route }: Props) => {
         keyExtractor={(message) => message.id}
         renderItem={({ item }) => <MessageContent message={item} />}
         contentContainerStyle={styles.messageContent}
+        keyboardShouldPersistTaps="handled"
         onContentSizeChange={() =>
           listRef.current?.scrollToEnd({
             animated: true,
@@ -283,67 +284,84 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
   },
   header: {
-    paddingVertical: 8,
-    marginBottom: 16,
+    paddingVertical: 10,
+    marginBottom: 12,
   },
   headerText: {
-    fontSize: 20,
-    fontWeight: "600",
+    fontSize: 24,
+    lineHeight: 30,
+    fontWeight: "500",
     color: "#111827",
   },
   messages: {
     flex: 1,
   },
   messageContent: {
-    gap: 12,
-    paddingBottom: 12,
+    gap: 14,
+    paddingTop: 6,
+    paddingBottom: 16,
   },
   messageBubble: {
-    maxWidth: "80%",
-    padding: 12,
-    borderRadius: 12,
+    maxWidth: "82%",
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    borderRadius: 16,
   },
   assistantBubble: {
     alignSelf: "flex-start",
-    backgroundColor: "#f3f4f6",
+    backgroundColor: "#f5f6f8",
+    borderWidth: 1,
+    borderColor: "#eceff3",
   },
   userBubble: {
     alignSelf: "flex-end",
-    backgroundColor: "#e0f2fe",
+    backgroundColor: "#eaf3ff",
+    borderWidth: 1,
+    borderColor: "#dbeafe",
   },
   messageText: {
     color: "#374151",
+    fontSize: 16,
+    lineHeight: 24,
   },
   userMessageText: {
     color: "#0f172a",
+    fontSize: 16,
+    lineHeight: 24,
   },
   inputRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    paddingTop: 16,
+    paddingTop: 14,
+    paddingBottom: 2,
   },
   input: {
     flex: 1,
     borderWidth: 1,
-    borderColor: "#e5e7eb",
-    borderRadius: 12,
+    borderColor: "#d1d5db",
+    borderRadius: 14,
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingVertical: 12,
     fontSize: 16,
+    lineHeight: 22,
     color: "#111827",
+    backgroundColor: "#fff",
   },
   sendButton: {
+    minWidth: 64,
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
+    paddingVertical: 12,
+    borderRadius: 14,
     backgroundColor: "#111827",
+    alignItems: "center",
   },
   sendButtonDisabled: {
-    opacity: 0.5,
+    opacity: 0.45,
   },
   sendText: {
     color: "#fff",
+    fontSize: 16,
     fontWeight: "600",
   },
 });
