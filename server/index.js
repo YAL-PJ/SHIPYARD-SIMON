@@ -456,7 +456,7 @@ const summarizeAnalyticsEvents = (events) => {
     "session_closed",
     "outcome_extraction_result",
     "session_report_extraction_result",
-    "report_feedback_submitted",
+    "session_report_feedback",
   ];
 
   const metrics = names.reduce((acc, name) => {
@@ -464,9 +464,41 @@ const summarizeAnalyticsEvents = (events) => {
     return acc;
   }, {});
 
+  const installEventsByInstall = events.reduce((acc, event) => {
+    const installId = event?.payload?.install_id;
+    if (typeof installId !== "string" || installId.length === 0) {
+      return acc;
+    }
+
+    const createdAtMs = +new Date(event.createdAt || 0);
+    if (!acc[installId]) {
+      acc[installId] = [];
+    }
+    if (Number.isFinite(createdAtMs)) {
+      acc[installId].push(createdAtMs);
+    }
+
+    return acc;
+  }, {});
+
+  const installIds = Object.keys(installEventsByInstall);
+  const retainedD7 = installIds.filter((installId) => {
+    const points = installEventsByInstall[installId].sort((a, b) => a - b);
+    if (points.length < 2) {
+      return false;
+    }
+
+    const first = points[0];
+    return points.some((value) => value - first >= 7 * 24 * 60 * 60 * 1000);
+  }).length;
+
   return {
     total: events.length,
     metrics,
+    installs: {
+      total: installIds.length,
+      retainedD7,
+    },
     latestEventAt: events[events.length - 1]?.createdAt || null,
   };
 };

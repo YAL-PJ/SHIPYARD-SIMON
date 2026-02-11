@@ -1,10 +1,16 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+import { CoachLabel } from "../types/coaches";
 import { getOutcomeCards } from "./progress";
 
 const LAST_OPENED_KEY = "shipyard.engagement.lastOpenedAt";
 const LAST_REMINDER_KEY = "shipyard.engagement.lastReminderAt";
 const MS_IN_DAY = 24 * 60 * 60 * 1000;
+
+export type GentleReminder = {
+  message: string;
+  coach: CoachLabel;
+};
 
 export const markAppOpenedNow = async () => {
   await AsyncStorage.setItem(LAST_OPENED_KEY, new Date().toISOString());
@@ -39,14 +45,23 @@ export const maybeGetGentleReminder = async () => {
   }
 
   if (recentOutcome.data.kind === "decision") {
-    return "You made a decision recently. Want to revisit it?";
+    return {
+      message: "You made a decision recently. Want to revisit it?",
+      coach: "Decision Coach" as CoachLabel,
+    } satisfies GentleReminder;
   }
 
   if (recentOutcome.data.kind === "focus") {
-    return "You paused after choosing one priority. Want to check in?";
+    return {
+      message: "You paused after choosing one priority. Want to check in?",
+      coach: "Focus Coach" as CoachLabel,
+    } satisfies GentleReminder;
   }
 
-  return "You captured an insight recently. Want to check in?";
+  return {
+    message: "You captured an insight recently. Want to check in?",
+    coach: "Reflection Coach" as CoachLabel,
+  } satisfies GentleReminder;
 };
 
 export const markReminderShownNow = async () => {

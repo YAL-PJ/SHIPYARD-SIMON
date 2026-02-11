@@ -248,6 +248,38 @@ const buildWeeklySummaryText = (outcomes: SessionOutcomeCard[]) => {
       { label: "Reflection", count: reflectionCount },
     ].sort((a, b) => b.count - a.count)[0]?.label ?? "Focus";
 
+  const extractTokens = (value: string) =>
+    value
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, " ")
+      .split(/\s+/)
+      .filter((token) => token.length >= 4 && !["that", "with", "from", "this", "your", "have", "what"].includes(token));
+
+  const tokenCounts = outcomes.reduce<Record<string, number>>((acc, entry) => {
+    let source = "";
+    if (entry.data.kind === "focus") {
+      source = `${entry.data.priority} ${entry.data.firstStep}`;
+    } else if (entry.data.kind === "decision") {
+      source = `${entry.data.decision} ${entry.data.tradeoffAccepted}`;
+    } else {
+      source = `${entry.data.insight} ${entry.data.questionToCarry}`;
+    }
+
+    extractTokens(source).forEach((token) => {
+      acc[token] = (acc[token] || 0) + 1;
+    });
+
+    return acc;
+  }, {});
+
+  const topTheme = Object.entries(tokenCounts)
+    .sort((a, b) => b[1] - a[1])
+    .find(([, count]) => count >= 2)?.[0];
+
+  if (topTheme) {
+    return `This week you recorded ${outcomes.length} outcomes. ${dominantMode} carried most of your attention, with recurring emphasis on ${topTheme}.`;
+  }
+
   return `This week you recorded ${outcomes.length} outcomes. ${dominantMode} carried most of your attention.`;
 };
 

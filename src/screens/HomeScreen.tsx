@@ -55,11 +55,11 @@ export const HomeScreen = ({ navigation }: Props) => {
         const reminder = await maybeGetGentleReminder();
         if (reminder) {
           await markReminderShownNow();
-          Alert.alert("Check-in", reminder, [
+          Alert.alert("Check-in", reminder.message, [
             { text: "Not now", style: "cancel" },
             {
-              text: "Start Focus Session",
-              onPress: () => navigation.navigate("Chat", { coach: "Focus Coach" }),
+              text: `Start ${reminder.coach.replace(" Coach", "")}`,
+              onPress: () => navigation.navigate("Chat", { coach: reminder.coach, quickMode: true }),
             },
           ]);
         }
