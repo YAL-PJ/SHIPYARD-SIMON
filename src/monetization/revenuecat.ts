@@ -1,8 +1,7 @@
 import { Platform } from "react-native";
 
 export const PRO_ENTITLEMENT_IDENTIFIER =
-  process.env.EXPO_PUBLIC_RC_ENTITLEMENT_ID ??
-  "AI coaching for the moment you feel stuck Pro";
+  process.env.EXPO_PUBLIC_RC_ENTITLEMENT_ID ?? "unlimited_messages";
 export const MONTHLY_PRODUCT_IDENTIFIER =
   process.env.EXPO_PUBLIC_RC_MONTHLY_PRODUCT_ID ?? "monthly";
 export const OFFERING_IDENTIFIER =

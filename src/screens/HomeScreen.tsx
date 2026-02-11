@@ -2,6 +2,7 @@ import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 
+import { useMonetization } from "../context/MonetizationContext";
 import { RootStackParamList } from "../types/navigation";
 import { CoachLabel } from "../types/coaches";
 
@@ -18,19 +19,37 @@ const COACHES: CoachOption[] = [
 ];
 
 export const HomeScreen = ({ navigation }: Props) => {
+  const { isSubscribed } = useMonetization();
+
+  const handleEditCoach = (coach: CoachLabel) => {
+    if (!isSubscribed) {
+      navigation.navigate("Paywall", { coach, source: "edit" });
+      return;
+    }
+
+    navigation.navigate("EditCoach", { coach });
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>What do you need right now?</Text>
       <View style={styles.cardList}>
         {COACHES.map((coach) => (
-          <TouchableOpacity
-            key={coach.label}
-            style={styles.card}
-            accessibilityRole="button"
-            onPress={() => navigation.navigate("Chat", { coach: coach.label })}
-          >
-            <Text style={styles.cardText}>{coach.label}</Text>
-          </TouchableOpacity>
+          <View key={coach.label} style={styles.card}>
+            <TouchableOpacity
+              accessibilityRole="button"
+              onPress={() => navigation.navigate("Chat", { coach: coach.label })}
+            >
+              <Text style={styles.cardText}>{coach.label}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              accessibilityRole="button"
+              style={styles.editButton}
+              onPress={() => handleEditCoach(coach.label)}
+            >
+              <Text style={styles.editButtonText}>Edit Coach</Text>
+            </TouchableOpacity>
+          </View>
         ))}
       </View>
     </View>
@@ -58,10 +77,23 @@ const styles = StyleSheet.create({
     borderColor: "#e5e7eb",
     padding: 20,
     backgroundColor: "#f9fafb",
+    gap: 12,
   },
   cardText: {
     fontSize: 18,
     fontWeight: "600",
     color: "#111827",
+  },
+  editButton: {
+    alignSelf: "flex-start",
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  editButtonText: {
+    color: "#374151",
+    fontWeight: "500",
   },
 });

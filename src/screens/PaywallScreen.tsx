@@ -9,7 +9,7 @@ import { RootStackParamList } from "../types/navigation";
 type Props = NativeStackScreenProps<RootStackParamList, "Paywall">;
 
 export const PaywallScreen = ({ navigation, route }: Props) => {
-  const { coach } = route.params;
+  const { coach, source = "chat" } = route.params;
   const {
     purchase,
     restore,
@@ -19,6 +19,11 @@ export const PaywallScreen = ({ navigation, route }: Props) => {
   const [restoreMessage, setRestoreMessage] = useState<string | null>(null);
 
   const closeAndPauseChat = async () => {
+    if (source !== "chat") {
+      navigation.goBack();
+      return;
+    }
+
     await pauseChatForToday();
     navigation.goBack();
   };
@@ -28,6 +33,11 @@ export const PaywallScreen = ({ navigation, route }: Props) => {
     const purchased = await purchase();
 
     if (purchased) {
+      if (source === "edit") {
+        navigation.replace("EditCoach", { coach });
+        return;
+      }
+
       navigation.navigate("Chat", { coach });
       return;
     }
@@ -40,6 +50,11 @@ export const PaywallScreen = ({ navigation, route }: Props) => {
     const restored = await restore();
 
     if (restored) {
+      if (source === "edit") {
+        navigation.replace("EditCoach", { coach });
+        return;
+      }
+
       navigation.navigate("Chat", { coach });
       return;
     }

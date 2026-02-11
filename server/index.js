@@ -17,6 +17,9 @@ const COACH_LABELS = new Set([
   "Decision Coach",
   "Reflection Coach",
 ]);
+const EDIT_TONE_OPTIONS = new Set(["Grounded", "Direct", "Gentle"]);
+const MAX_GOAL_EMPHASIS_LENGTH = 120;
+const MAX_CONSTRAINTS_LENGTH = 140;
 
 class HttpError extends Error {
   constructor(statusCode, message) {
@@ -72,8 +75,59 @@ const getOpenAIClient = () => {
   return openaiClient;
 };
 
-const buildSystemPrompt = (coach, userContext) => {
-  const parts = [promptBundle.constitution, promptBundle.coachPrompts[coach]];
+const normalizeTrimmedText = (value, maxLength) =>
+  typeof value === "string" ? value.trim().slice(0, maxLength) : "";
+
+const sanitizeEditedCoach = (coach, editedCoach) => {
+  if (!editedCoach || typeof editedCoach !== "object") {
+    return null;
+  }
+
+  if (editedCoach.coach !== coach) {
+    return null;
+  }
+
+  if (!EDIT_TONE_OPTIONS.has(editedCoach.tone)) {
+    return null;
+  }
+
+  return {
+    goalEmphasis: normalizeTrimmedText(
+      editedCoach.goalEmphasis,
+      MAX_GOAL_EMPHASIS_LENGTH,
+    ),
+    tone: editedCoach.tone,
+    constraints: normalizeTrimmedText(
+      editedCoach.constraints,
+      MAX_CONSTRAINTS_LENGTH,
+    ),
+  };
+};
+
+const buildPersonalizationBlock = (editedCoach) => {
+  if (!editedCoach) {
+    return "";
+  }
+
+  return [
+    "# Personalization Additions",
+    "Apply these preferences while preserving full coach identity and never-rules.",
+    `Goal emphasis: ${editedCoach.goalEmphasis || "None"}`,
+    `Tone preference: ${editedCoach.tone}`,
+    `Constraint: ${editedCoach.constraints || "None"}`,
+    "Do not change coach type, role, or constitutional constraints.",
+  ].join("\n");
+};
+
+const buildSystemPrompt = (coach, userContext, editedCoach) => {
+  const parts = [promptBundle.coachPrompts[coach]];
+  const personalizationBlock = buildPersonalizationBlock(editedCoach);
+
+  if (personalizationBlock) {
+    parts.push(personalizationBlock);
+  }
+
+  parts.push(promptBundle.constitution);
   const context = typeof userContext === "string" ? userContext.trim() : "";
 
   if (context.length > 0) {
@@ -109,10 +163,24 @@ const readRequestBody = (request) =>
     request.on("error", reject);
   });
 
-const getOpenAIReply = async ({ coach, messages, userContext }) => {
+const getOpenAIReply = async ({ coach, messages, userContext, editedCoach }) => {
   const openai = getOpenAIClient();
+  const safeEditedCoach = sanitizeEditedCoach(coach, editedCoach);
+
+  let systemPrompt;
+
+  try {
+    systemPrompt = buildSystemPrompt(coach, userContext, safeEditedCoach);
+  } catch {
+    systemPrompt = buildSystemPrompt(coach, userContext, null);
+  }
+
+  if (process.env.NODE_ENV !== "production") {
+    console.log("[dev] final-system-prompt", systemPrompt);
+  }
+
   const chatMessages = [
-    { role: "system", content: buildSystemPrompt(coach, userContext) },
+    { role: "system", content: systemPrompt },
     ...messages
       .filter(
         (message) =>
@@ -159,12 +227,16 @@ const parsePayload = (rawBody) => {
   const messages = Array.isArray(parsed.messages) ? parsed.messages : [];
   const userContext =
     typeof parsed.userContext === "string" ? parsed.userContext : "";
+  const editedCoach =
+    parsed.editedCoach && typeof parsed.editedCoach === "object"
+      ? parsed.editedCoach
+      : null;
 
   if (!COACH_LABELS.has(coach)) {
     throw new HttpError(400, "Invalid coach");
   }
 
-  return { coach, messages, userContext };
+  return { coach, messages, userContext, editedCoach };
 };
 
 createServer(async (request, response) => {
