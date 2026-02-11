@@ -19,12 +19,10 @@ export const PaywallScreen = ({ navigation, route }: Props) => {
   const [restoreMessage, setRestoreMessage] = useState<string | null>(null);
 
   const closeAndPauseChat = async () => {
-    if (source !== "chat") {
-      navigation.goBack();
-      return;
+    if (source === "chat") {
+      await pauseChatForToday();
     }
 
-    await pauseChatForToday();
     navigation.goBack();
   };
 
@@ -69,10 +67,24 @@ export const PaywallScreen = ({ navigation, route }: Props) => {
   return (
     <View style={styles.container}>
       <View style={styles.content}>
-        <Text style={styles.title}>Calm access, when you need it.</Text>
+        <Text style={styles.title}>Choose your coaching plan</Text>
         <Text style={styles.subtitle}>
-          Subscribe monthly for pro access to coaching whenever you need clarity.
+          Free gives you daily guided chats. Pro unlocks unlimited coaching and personalization.
         </Text>
+        <View style={styles.planRow}>
+          <View style={styles.planColumn}>
+            <Text style={styles.planTitle}>Free</Text>
+            <Text style={styles.planItem}>• 3 coaches</Text>
+            <Text style={styles.planItem}>• Daily chat limit</Text>
+            <Text style={styles.planItem}>• Temporary context</Text>
+          </View>
+          <View style={styles.planColumn}>
+            <Text style={styles.planTitle}>Pro</Text>
+            <Text style={styles.planItem}>• Unlimited chats</Text>
+            <Text style={styles.planItem}>• Edit your coaches</Text>
+            <Text style={styles.planItem}>• Persistent context</Text>
+          </View>
+        </View>
       </View>
       <View style={styles.actions}>
         <TouchableOpacity
@@ -94,7 +106,7 @@ export const PaywallScreen = ({ navigation, route }: Props) => {
         </TouchableOpacity>
         {restoreMessage ? <Text style={styles.restoreHint}>{restoreMessage}</Text> : null}
         <TouchableOpacity accessibilityRole="button" onPress={closeAndPauseChat}>
-          <Text style={styles.dismissText}>Not now</Text>
+          <Text style={styles.dismissText}>Continue with Free</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -125,7 +137,34 @@ const styles = StyleSheet.create({
     textAlign: "center",
     color: "#4b5563",
     lineHeight: 24,
-    maxWidth: 320,
+    maxWidth: 340,
+  },
+  planRow: {
+    width: "100%",
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 12,
+  },
+  planColumn: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: "#fafafa",
+    gap: 6,
+  },
+  planTitle: {
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: "600",
+    color: "#111827",
+  },
+  planItem: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: "#4b5563",
   },
   actions: {
     gap: 14,
