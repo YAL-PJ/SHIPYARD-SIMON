@@ -4,5 +4,5 @@ export type RootStackParamList = {
   Welcome: undefined;
   Home: undefined;
   Chat: { coach: CoachLabel };
-  Paywall: undefined;
+  Paywall: { coach: CoachLabel };
 };
