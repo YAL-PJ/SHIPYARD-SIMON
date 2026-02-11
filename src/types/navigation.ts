@@ -8,4 +8,7 @@ export type RootStackParamList = {
   EditCoach: { coach: CoachLabel };
   Progress: undefined;
   History: undefined;
+  Memory: undefined;
+  Safety: undefined;
+  Insights: undefined;
 };

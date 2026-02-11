@@ -9,6 +9,9 @@ import { PaywallScreen } from "../screens/PaywallScreen";
 import { EditCoachScreen } from "../screens/EditCoachScreen";
 import { ProgressScreen } from "../screens/ProgressScreen";
 import { HistoryScreen } from "../screens/HistoryScreen";
+import { MemoryScreen } from "../screens/MemoryScreen";
+import { SafetyScreen } from "../screens/SafetyScreen";
+import { InsightsScreen } from "../screens/InsightsScreen";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -48,6 +51,21 @@ export const RootNavigator = () => {
       <Stack.Screen
         name="History"
         component={HistoryScreen}
+        options={{ title: "" }}
+      />
+      <Stack.Screen
+        name="Memory"
+        component={MemoryScreen}
+        options={{ title: "" }}
+      />
+      <Stack.Screen
+        name="Safety"
+        component={SafetyScreen}
+        options={{ title: "" }}
+      />
+      <Stack.Screen
+        name="Insights"
+        component={InsightsScreen}
         options={{ title: "" }}
       />
     </Stack.Navigator>

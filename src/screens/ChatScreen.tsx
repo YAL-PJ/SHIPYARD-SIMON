@@ -18,6 +18,7 @@ import { RootStackParamList } from "../types/navigation";
 import { CoachEditConfig } from "../types/editCoach";
 import { SessionOutcomeData } from "../types/progress";
 import { getUserContext } from "../storage/preferences";
+import { getMemoryItems, isMemoryEnabled } from "../storage/memory";
 import { getCoachEditConfig } from "../storage/editedCoach";
 import {
   consumeDailyFreeMessage,
@@ -80,6 +81,27 @@ const deriveDraftOutcome = (
     insight: parts[0] ?? userLatest,
     questionToCarry: parts[1] ?? "What wants more attention before your next session?",
   };
+};
+
+const buildCoachingContext = async () => {
+  const [userContext, memoryEnabled, memoryItems] = await Promise.all([
+    getUserContext(),
+    isMemoryEnabled(),
+    getMemoryItems(),
+  ]);
+
+  if (!memoryEnabled || memoryItems.length === 0) {
+    return userContext;
+  }
+
+  const memoryBlock = memoryItems
+    .slice(0, 6)
+    .map((item) => `- ${item.label}`)
+    .join("\n");
+
+  return [userContext, "Remembered patterns:", memoryBlock]
+    .filter((part) => part && part.trim().length > 0)
+    .join("\n\n");
 };
 
 const MessageContent = ({ message }: MessageContentProps) => {
@@ -236,7 +258,7 @@ export const ChatScreen = ({ navigation, route }: Props) => {
       setIsSending(true);
 
       try {
-        const userContext = await getUserContext();
+        const userContext = await buildCoachingContext();
         const reply = await fetchCoachReply({
           coach,
           messages: latestMessages,
@@ -310,7 +332,7 @@ export const ChatScreen = ({ navigation, route }: Props) => {
     setIsSending(true);
 
     try {
-      const userContext = await getUserContext();
+      const userContext = await buildCoachingContext();
       const reply = await fetchCoachReply({
         coach,
         messages: nextMessages,
@@ -348,7 +370,16 @@ export const ChatScreen = ({ navigation, route }: Props) => {
     }
   };
 
+  const isCrisisSignal = /suicid|self-harm|harm myself|kill myself|panic attack|unsafe/i.test(messages.map((m) => m.content).join(" "));
+
   const handleCloseSession = async () => {
+    const conversationalMessages = messagesRef.current.filter((m) => !m.isOpening && !m.isError);
+
+    if (conversationalMessages.length < 2) {
+      await trackEvent("session_close_blocked", { coach, reason: "insufficient_conversation" });
+      return;
+    }
+
     if (!draftOutcome) {
       await trackEvent("session_close_blocked", { coach, reason: "missing_outcome" });
       return;
@@ -381,8 +412,13 @@ export const ChatScreen = ({ navigation, route }: Props) => {
             {editedCoach ? `${coach} • Edited` : coach}
           </Text>
         </View>
-        <View style={styles.statusPill}>
-          <Text style={styles.statusText}>{isSubscribed ? "Pro" : "Free"}</Text>
+        <View style={styles.headerActions}>
+          <TouchableOpacity style={styles.safetyButton} onPress={() => navigation.navigate("Safety")}>
+            <Text style={styles.safetyButtonText}>Safety</Text>
+          </TouchableOpacity>
+          <View style={styles.statusPill}>
+            <Text style={styles.statusText}>{isSubscribed ? "Plus" : "Free"}</Text>
+          </View>
         </View>
       </View>
 
@@ -439,6 +475,12 @@ export const ChatScreen = ({ navigation, route }: Props) => {
           </TouchableOpacity>
         </View>
       ) : null}
+{isCrisisSignal ? (
+        <TouchableOpacity style={styles.crisisCard} onPress={() => navigation.navigate("Safety")}>
+          <Text style={styles.crisisTitle}>Need urgent support instead of coaching?</Text>
+          <Text style={styles.crisisText}>Open crisis resources and boundaries.</Text>
+        </TouchableOpacity>
+      ) : null}
       <Text style={styles.helperText}>{helperText}</Text>
       <View style={styles.inputRow}>
         <TextInput
@@ -493,6 +535,24 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#0f172a",
     letterSpacing: -0.4,
+  },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  safetyButton: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#dbe3ef",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: "#fff",
+  },
+  safetyButtonText: {
+    color: "#334155",
+    fontSize: 12,
+    fontWeight: "600",
   },
   statusPill: {
     borderRadius: 999,
@@ -593,6 +653,24 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontSize: 13,
     fontWeight: "600",
+  },
+  crisisCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#fecaca",
+    backgroundColor: "#fff1f2",
+    padding: 10,
+    gap: 4,
+    marginTop: 4,
+  },
+  crisisTitle: {
+    color: "#9f1239",
+    fontWeight: "700",
+    fontSize: 13,
+  },
+  crisisText: {
+    color: "#881337",
+    fontSize: 12,
   },
   helperText: {
     fontSize: 13,
