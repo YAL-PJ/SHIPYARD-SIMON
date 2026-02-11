@@ -6,6 +6,9 @@
     "orientation": "portrait",
     "assetBundlePatterns": [
       "**/*"
-    ]
+    ],
+    "android": {
+      "package": "com.kavanah.coaching"
+    }
   }
 }
