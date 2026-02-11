@@ -19,6 +19,22 @@ export type ConnectorConfig = {
 const CONNECTORS_KEY = "shipyard.portal.connectors";
 const SYNC_WINDOW_DAYS = 7;
 
+const CALENDAR_FETCH_TIMEOUT_MS = 12000;
+
+const isLikelyIcsUrl = (value: string) => /^https:\/\/.+\.(ics|ical)(\?.*)?$/i.test(value.trim()) || /^https:\/\/.+/i.test(value.trim());
+
+const fetchWithTimeout = async (url: string, timeoutMs: number) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(url, { signal: controller.signal });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+};
+
+
 const DEFAULT_CONNECTORS: ConnectorConfig[] = [
   {
     id: "calendar",
@@ -271,9 +287,15 @@ export const syncCalendarConnector = async () => {
     return { ok: false as const, error: "Add an iCal URL before syncing." };
   }
 
+  if (!isLikelyIcsUrl(connector.externalSourceUrl)) {
+    const error = "Calendar URL must be a valid HTTPS feed.";
+    await updateConnector("calendar", (entry) => ({ ...entry, syncError: error }));
+    return { ok: false as const, error };
+  }
+
   let response: Response;
   try {
-    response = await fetch(connector.externalSourceUrl);
+    response = await fetchWithTimeout(connector.externalSourceUrl, CALENDAR_FETCH_TIMEOUT_MS);
   } catch {
     await updateConnector("calendar", (entry) => ({ ...entry, syncError: "Could not reach calendar source URL." }));
     return { ok: false as const, error: "Could not reach calendar source URL." };
@@ -286,13 +308,18 @@ export const syncCalendarConnector = async () => {
   }
 
   const text = await response.text();
+  if (text.length > 3_000_000) {
+    const error = "Calendar source payload is too large.";
+    await updateConnector("calendar", (entry) => ({ ...entry, syncError: error }));
+    return { ok: false as const, error };
+  }
   if (!text.includes("BEGIN:VCALENDAR")) {
     const error = "Source did not return a valid iCal calendar.";
     await updateConnector("calendar", (entry) => ({ ...entry, syncError: error }));
     return { ok: false as const, error };
   }
 
-  const events = parseCalendarEvents(text);
+  const events = parseCalendarEvents(text).slice(0, 500);
   const summary = buildCalendarSummary(events);
   const nowIso = new Date().toISOString();
 

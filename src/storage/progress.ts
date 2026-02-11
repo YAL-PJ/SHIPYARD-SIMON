@@ -168,7 +168,21 @@ const buildSessionReport = (
 
 const hasDistinctMeaning = (value: string) => {
   const normalized = value.trim().toLowerCase();
-  return normalized.length >= 24 && !normalized.includes("pattern signal");
+  return normalized.length >= 24 && !normalized.includes("pattern signal") && !normalized.includes("you completed a");
+};
+
+const hasLowDiversity = (value: string) => {
+  const tokens = value
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((token) => token.length > 2);
+
+  if (tokens.length < 8) {
+    return true;
+  }
+
+  return new Set(tokens).size / tokens.length < 0.55;
 };
 
 const selectReportCandidate = (
@@ -191,7 +205,8 @@ const selectReportCandidate = (
     reportOverride.confidence >= 0.55 &&
     hasDistinctMeaning(reportOverride.summary) &&
     hasDistinctMeaning(reportOverride.pattern) &&
-    hasDistinctMeaning(reportOverride.nextCheckInPrompt);
+    hasDistinctMeaning(reportOverride.nextCheckInPrompt) &&
+    !hasLowDiversity(`${reportOverride.summary} ${reportOverride.pattern} ${reportOverride.nextCheckInPrompt}`);
 
   if (!accepted) {
     return { report: fallbackReport, qualityStatus: "rejected_ai_fallback" };
@@ -237,6 +252,9 @@ const getWeekRange = (dateValue: Date) => {
 
 const buildWeeklySummaryText = (outcomes: SessionOutcomeCard[]) => {
   const focusCount = outcomes.filter((entry) => entry.data.kind === "focus").length;
+  const focusCompleted = outcomes.filter(
+    (entry) => entry.data.kind === "focus" && entry.data.isCompleted,
+  ).length;
   const decisionCount = outcomes.filter((entry) => entry.data.kind === "decision").length;
   const reflectionCount = outcomes.filter(
     (entry) => entry.data.kind === "reflection",
@@ -244,17 +262,17 @@ const buildWeeklySummaryText = (outcomes: SessionOutcomeCard[]) => {
 
   const dominantMode =
     [
-      { label: "Focus", count: focusCount },
-      { label: "Decision", count: decisionCount },
-      { label: "Reflection", count: reflectionCount },
-    ].sort((a, b) => b.count - a.count)[0]?.label ?? "Focus";
+      { label: "focus execution", count: focusCount },
+      { label: "decision clarity", count: decisionCount },
+      { label: "reflection depth", count: reflectionCount },
+    ].sort((a, b) => b.count - a.count)[0]?.label ?? "focus execution";
 
   const extractTokens = (value: string) =>
     value
       .toLowerCase()
       .replace(/[^a-z0-9\s]/g, " ")
       .split(/\s+/)
-      .filter((token) => token.length >= 4 && !["that", "with", "from", "this", "your", "have", "what"].includes(token));
+      .filter((token) => token.length >= 4 && !["that", "with", "from", "this", "your", "have", "what", "into", "after"].includes(token));
 
   const tokenCounts = outcomes.reduce<Record<string, number>>((acc, entry) => {
     let source = "";
@@ -273,20 +291,27 @@ const buildWeeklySummaryText = (outcomes: SessionOutcomeCard[]) => {
     return acc;
   }, {});
 
-  const topTheme = Object.entries(tokenCounts)
+  const themes = Object.entries(tokenCounts)
     .sort((a, b) => b[1] - a[1])
-    .find(([, count]) => count >= 2)?.[0];
+    .filter(([, count]) => count >= 2)
+    .slice(0, 2)
+    .map(([token]) => token);
 
   const transitions = outcomes
     .slice(0, 4)
     .map((entry) => entry.coach.replace(" Coach", ""))
     .join(" → ");
 
-  if (topTheme) {
-    return `This week you recorded ${outcomes.length} outcomes. ${dominantMode} carried most of your attention, recurring theme: ${topTheme}. Coaching flow: ${transitions}.`;
+  const completionSignal =
+    focusCount > 0
+      ? `${focusCompleted}/${focusCount} focus outcomes were completed.`
+      : "No focus outcomes were logged this week.";
+
+  if (themes.length > 0) {
+    return `This week you recorded ${outcomes.length} outcomes; most effort went into ${dominantMode}. Repeating themes: ${themes.join(" and ")}. ${completionSignal} Coaching flow: ${transitions}.`;
   }
 
-  return `This week you recorded ${outcomes.length} outcomes. ${dominantMode} carried most of your attention. Coaching flow this week: ${transitions}.`;
+  return `This week you recorded ${outcomes.length} outcomes; most effort went into ${dominantMode}. ${completionSignal} Coaching flow: ${transitions}.`;
 };
 
 const maybeCreateWeeklySummary = async (outcomes: SessionOutcomeCard[]) => {

@@ -1,9 +1,19 @@
 {
   "expo": {
-    "name": "Shipyard Simon",
-    "slug": "shipyard-simon",
+    "name": "Kavanah Coaching",
+    "slug": "kavanah-coaching",
     "version": "0.1.0",
     "orientation": "portrait",
-    "assetBundlePatterns": ["**/*"]
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "plugins": [
+      "expo-notifications"
+    ],
+    "android": {
+      "permissions": [
+        "POST_NOTIFICATIONS"
+      ]
+    }
   }
 }

@@ -7,7 +7,28 @@ const LAST_OPENED_KEY = "shipyard.engagement.lastOpenedAt";
 const LAST_REMINDER_KEY = "shipyard.engagement.lastReminderAt";
 const PENDING_REMINDER_KEY = "shipyard.engagement.pendingReminder";
 const SCHEDULED_REMINDER_KEY = "shipyard.engagement.scheduledReminder";
+const LAST_NOTIFICATION_ID_KEY = "shipyard.engagement.lastNotificationId";
 const MS_IN_DAY = 24 * 60 * 60 * 1000;
+
+type NotificationsModule = {
+  setNotificationHandler: (handler: {
+    handleNotification: () => Promise<{
+      shouldPlaySound: boolean;
+      shouldSetBadge: boolean;
+      shouldShowAlert: boolean;
+    }>;
+  }) => void;
+  getPermissionsAsync: () => Promise<{ granted?: boolean }>;
+  requestPermissionsAsync: () => Promise<{ granted?: boolean }>;
+  scheduleNotificationAsync: (request: {
+    content: { title: string; body: string; data?: Record<string, string> };
+    trigger: { seconds: number };
+  }) => Promise<string>;
+  cancelScheduledNotificationAsync: (identifier: string) => Promise<void>;
+  getLastNotificationResponseAsync: () => Promise<{
+    notification?: { request?: { content?: { data?: Record<string, string> } } };
+  } | null>;
+};
 
 export type ReminderTarget = "focus_outcome" | "focus_checkin";
 
@@ -18,6 +39,29 @@ export type GentleReminder = {
   target: ReminderTarget;
   outcomeId?: string;
   scheduledFor: string;
+  delivery: "local_notification" | "in_app";
+};
+
+let notificationsModule: NotificationsModule | null = null;
+
+const getNotificationsModule = (): NotificationsModule | null => {
+  if (notificationsModule) {
+    return notificationsModule;
+  }
+
+  try {
+    notificationsModule = require("expo-notifications") as NotificationsModule;
+    notificationsModule.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldPlaySound: false,
+        shouldSetBadge: false,
+        shouldShowAlert: true,
+      }),
+    });
+    return notificationsModule;
+  } catch {
+    return null;
+  }
 };
 
 const parseReminder = (value: string | null): GentleReminder | null => {
@@ -31,7 +75,7 @@ const parseReminder = (value: string | null): GentleReminder | null => {
       return null;
     }
 
-    return parsed;
+    return { ...parsed, delivery: parsed.delivery === "local_notification" ? "local_notification" : "in_app" };
   } catch {
     return null;
   }
@@ -88,7 +132,34 @@ export const maybeScheduleGentleReminder = async () => {
     target: unresolvedFocus ? "focus_outcome" : "focus_checkin",
     outcomeId: unresolvedFocus?.id,
     scheduledFor: new Date(now + 5 * 60 * 1000).toISOString(),
+    delivery: "in_app",
   };
+
+  const notifications = getNotificationsModule();
+  if (notifications) {
+    const currentPermissions = await notifications.getPermissionsAsync();
+    const nextPermissions = currentPermissions.granted
+      ? currentPermissions
+      : await notifications.requestPermissionsAsync();
+
+    if (nextPermissions.granted) {
+      const notificationId = await notifications.scheduleNotificationAsync({
+        content: {
+          title: "Gentle check-in",
+          body: reminder.message,
+          data: {
+            reminderId: reminder.id,
+            target: reminder.target,
+            outcomeId: reminder.outcomeId ?? "",
+          },
+        },
+        trigger: { seconds: 5 * 60 },
+      });
+
+      reminder.delivery = "local_notification";
+      await AsyncStorage.setItem(LAST_NOTIFICATION_ID_KEY, notificationId);
+    }
+  }
 
   await AsyncStorage.setItem(SCHEDULED_REMINDER_KEY, JSON.stringify(reminder));
   return reminder;
@@ -123,5 +194,37 @@ export const consumePendingReminder = async () => {
 };
 
 export const markReminderShownNow = async () => {
+  const notifications = getNotificationsModule();
+  const notificationId = await AsyncStorage.getItem(LAST_NOTIFICATION_ID_KEY);
   await AsyncStorage.setItem(LAST_REMINDER_KEY, new Date().toISOString());
+  await AsyncStorage.removeItem(LAST_NOTIFICATION_ID_KEY);
+
+  if (notifications && notificationId) {
+    await notifications.cancelScheduledNotificationAsync(notificationId).catch(() => null);
+  }
+};
+
+export const consumeReminderFromNotificationTap = async () => {
+  const notifications = getNotificationsModule();
+  if (!notifications) {
+    return null;
+  }
+
+  const response = await notifications.getLastNotificationResponseAsync().catch(() => null);
+  const data = response?.notification?.request?.content?.data;
+  if (!data?.reminderId || !data?.target) {
+    return null;
+  }
+
+  const scheduled = parseReminder(await AsyncStorage.getItem(SCHEDULED_REMINDER_KEY));
+  if (!scheduled || scheduled.id !== data.reminderId) {
+    return null;
+  }
+
+  await AsyncStorage.multiSet([
+    [PENDING_REMINDER_KEY, JSON.stringify(scheduled)],
+    [SCHEDULED_REMINDER_KEY, ""],
+  ]);
+
+  return scheduled;
 };

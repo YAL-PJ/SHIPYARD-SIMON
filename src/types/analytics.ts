@@ -17,6 +17,7 @@ export const ANALYTICS_EVENT = {
   CALENDAR_CONNECT_REQUESTED: "calendar_connect_requested",
   CALENDAR_CONNECTED: "calendar_connected",
   CALENDAR_DISCONNECTED: "calendar_disconnected",
+  CALENDAR_SYNC_STARTED: "calendar_sync_started",
   CALENDAR_SYNC_SUCCEEDED: "calendar_sync_succeeded",
   CALENDAR_SYNC_FAILED: "calendar_sync_failed",
 } as const;

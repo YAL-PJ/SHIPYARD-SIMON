@@ -54,11 +54,11 @@ export const WelcomeScreen = ({ navigation }: Props) => {
       >
         <View style={styles.heroSection}>
           <View style={styles.badge}>
-            <Text style={styles.badgeText}>MARA • PERSONAL COACH</Text>
+            <Text style={styles.badgeText}>KAVANAH • COACHING APP</Text>
           </View>
           <Text style={styles.title}>Find your next clear move.</Text>
           <Text style={styles.subtitle}>
-            When you feel overwhelmed, Mara helps you slow down, sort priorities,
+            When you feel overwhelmed, Kavanah helps you slow down, sort priorities,
             and choose one action that matters.
           </Text>
         </View>
@@ -85,7 +85,7 @@ export const WelcomeScreen = ({ navigation }: Props) => {
           <View style={styles.memoryCard}>
             <Text style={styles.memoryTitle}>Memory setting</Text>
             <Text style={styles.memoryText}>
-              To help you think better over time, Mara remembers patterns from your sessions.
+              To help you think better over time, Kavanah remembers patterns from your sessions.
               You can review or turn this off anytime.
             </Text>
             <View style={styles.memoryActions}>

@@ -11,6 +11,8 @@ import { ANALYTICS_EVENT } from "../types/analytics";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Insights">;
 
+const pct = (value?: number) => `${Math.round((value ?? 0) * 100)}%`;
+
 export const InsightsScreen = (_: Props) => {
   const [metrics, setMetrics] = useState<EventMetric[]>([]);
   const [syncStatus, setSyncStatus] = useState<string>("Not synced");
@@ -25,7 +27,7 @@ export const InsightsScreen = (_: Props) => {
     }
 
     setServerSummary(
-      `Save rate ${(summary.kpis?.outcomeSaveRate ?? 0) * 100}% • Focus completion ${(summary.kpis?.focusCompletionRate ?? 0) * 100}% • Report acceptance ${(summary.kpis?.reportQualityAcceptanceRate ?? 0) * 100}% • D7 ${summary.installs?.retainedD7 ?? 0} • D30 ${summary.installs?.retainedD30 ?? 0}`,
+      `Save ${pct(summary.kpis?.outcomeSaveRate)} • Focus completion ${pct(summary.kpis?.focusCompletionRate)} • Report acceptance ${pct(summary.kpis?.reportQualityAcceptanceRate)} • Fallback ${pct(summary.kpis?.reportFallbackRate)} • Useful ${pct(summary.kpis?.reportUsefulnessRate)} • D7 ${summary.installs?.retainedD7 ?? 0} • D30 ${summary.installs?.retainedD30 ?? 0}`,
     );
   }, []);
 
@@ -45,7 +47,7 @@ export const InsightsScreen = (_: Props) => {
     setSyncStatus(`Synced ${result.accepted} events`);
     if (result.summary) {
       setServerSummary(
-        `Save rate ${(result.summary.kpis?.outcomeSaveRate ?? 0) * 100}% • Focus completion ${(result.summary.kpis?.focusCompletionRate ?? 0) * 100}% • Report acceptance ${(result.summary.kpis?.reportQualityAcceptanceRate ?? 0) * 100}% • D7 ${result.summary.installs?.retainedD7 ?? 0} • D30 ${result.summary.installs?.retainedD30 ?? 0}`,
+        `Save ${pct(result.summary.kpis?.outcomeSaveRate)} • Focus completion ${pct(result.summary.kpis?.focusCompletionRate)} • Report acceptance ${pct(result.summary.kpis?.reportQualityAcceptanceRate)} • Fallback ${pct(result.summary.kpis?.reportFallbackRate)} • Useful ${pct(result.summary.kpis?.reportUsefulnessRate)} • D7 ${result.summary.installs?.retainedD7 ?? 0} • D30 ${result.summary.installs?.retainedD30 ?? 0}`,
       );
     }
     await loadMetrics();

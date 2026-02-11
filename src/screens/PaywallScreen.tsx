@@ -67,7 +67,7 @@ export const PaywallScreen = ({ navigation, route }: Props) => {
   return (
     <View style={styles.container}>
       <View style={styles.content}>
-        <Text style={styles.eyebrow}>MARA PLUS</Text>
+        <Text style={styles.eyebrow}>KAVANAH PLUS</Text>
         <Text style={styles.title}>Upgrade to deeper coaching</Text>
         <Text style={styles.subtitle}>
           Unlock memory controls, session reports, and continuity. Advanced Portal adds instruction packs plus connector-based context.
