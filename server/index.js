@@ -17,10 +17,25 @@ const MAX_HISTORY_MESSAGES = 24;
 const EVENT = {
   SESSION_SAVED: "session_saved",
   SESSION_CLOSED: "session_closed",
+  SESSION_CLOSE_BLOCKED: "session_close_blocked",
   OUTCOME_EXTRACTION_RESULT: "outcome_extraction_result",
   SESSION_REPORT_EXTRACTION_RESULT: "session_report_extraction_result",
   SESSION_REPORT_SAVED: "session_report_saved",
   SESSION_REPORT_FEEDBACK: "session_report_feedback",
+  OUTCOME_UPDATED: "outcome_updated",
+  OUTCOME_FOCUS_COMPLETED: "outcome_focus_completed",
+  OUTCOME_ARCHIVED: "outcome_archived",
+  OUTCOME_DELETED: "outcome_deleted",
+  ANALYTICS_SYNCED: "analytics_synced",
+  REMINDER_SCHEDULED: "reminder_scheduled",
+  REMINDER_TRIGGERED: "reminder_triggered",
+  REMINDER_OPENED: "reminder_opened",
+  CALENDAR_CONNECT_REQUESTED: "calendar_connect_requested",
+  CALENDAR_CONNECTED: "calendar_connected",
+  CALENDAR_DISCONNECTED: "calendar_disconnected",
+  CALENDAR_SYNC_STARTED: "calendar_sync_started",
+  CALENDAR_SYNC_SUCCEEDED: "calendar_sync_succeeded",
+  CALENDAR_SYNC_FAILED: "calendar_sync_failed",
 };
 
 const PORT = Number(process.env.PORT || 8787);
@@ -466,7 +481,7 @@ const summarizeAnalyticsEvents = (events) => {
   const focusSaved = events.filter(
     (event) => event?.name === EVENT.SESSION_SAVED && event?.payload?.outcome_kind === "focus",
   ).length;
-  const focusCompleted = events.filter((event) => event?.name === "outcome_focus_completed").length;
+  const focusCompleted = events.filter((event) => event?.name === EVENT.OUTCOME_FOCUS_COMPLETED).length;
 
   const reportsSaved = events.filter((event) => event?.name === EVENT.SESSION_REPORT_SAVED);
   const acceptedReports = reportsSaved.filter((event) => event?.payload?.report_quality_status === "accepted_ai").length;
