@@ -3,7 +3,7 @@ import { CoachLabel } from "./coaches";
 export type RootStackParamList = {
   Welcome: undefined;
   Home: undefined;
-  Chat: { coach: CoachLabel; quickMode?: boolean };
+  Chat: { coach: CoachLabel; quickMode?: boolean; initialPriority?: string };
   Paywall: { coach: CoachLabel; source?: "chat" | "edit" | "home" };
   EditCoach: { coach: CoachLabel };
   Progress: { reminderOutcomeId?: string } | undefined;

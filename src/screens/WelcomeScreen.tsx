@@ -14,14 +14,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { RootStackParamList } from "../types/navigation";
 import { setHasSeenWelcome, setUserContext } from "../storage/preferences";
-import { setMemoryEnabled } from "../storage/memory";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Welcome">;
 
 export const WelcomeScreen = ({ navigation }: Props) => {
   const [contextInput, setContextInput] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-  const [memoryEnabled, setMemoryEnabledChoice] = useState(true);
 
   const trimmedContext = contextInput.trim();
 
@@ -36,7 +34,6 @@ export const WelcomeScreen = ({ navigation }: Props) => {
       await Promise.all([
         setUserContext(trimmedContext),
         setHasSeenWelcome(true),
-        setMemoryEnabled(memoryEnabled),
       ]);
     } catch {
       // Persisted preferences are best-effort; onboarding should still continue.
@@ -56,10 +53,9 @@ export const WelcomeScreen = ({ navigation }: Props) => {
           <View style={styles.badge}>
             <Text style={styles.badgeText}>KAVANAH • COACHING APP</Text>
           </View>
-          <Text style={styles.title}>Find your next clear move.</Text>
+          <Text style={styles.title}>Think clearly, one session at a time.</Text>
           <Text style={styles.subtitle}>
-            When you feel overwhelmed, Kavanah helps you slow down, sort priorities,
-            and choose one action that matters.
+            Enter one priority, move through a structured sequence, and leave with a clear outcome.
           </Text>
         </View>
 
@@ -82,35 +78,10 @@ export const WelcomeScreen = ({ navigation }: Props) => {
             <Text style={styles.counter}>{contextInput.length}/220</Text>
           </View>
 
-          <View style={styles.memoryCard}>
-            <Text style={styles.memoryTitle}>Memory setting</Text>
-            <Text style={styles.memoryText}>
-              To help you think better over time, Kavanah remembers patterns from your sessions.
-              You can review or turn this off anytime.
-            </Text>
-            <View style={styles.memoryActions}>
-              <TouchableOpacity
-                style={[styles.memoryButton, memoryEnabled && styles.memoryButtonActive]}
-                onPress={() => setMemoryEnabledChoice(true)}
-              >
-                <Text style={[styles.memoryButtonText, memoryEnabled && styles.memoryButtonTextActive]}>
-                  Continue with memory
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.memoryButton, !memoryEnabled && styles.memoryButtonActive]}
-                onPress={() => setMemoryEnabledChoice(false)}
-              >
-                <Text style={[styles.memoryButtonText, !memoryEnabled && styles.memoryButtonTextActive]}>
-                  Turn off memory
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
 
           <TouchableOpacity
             accessibilityRole="button"
-            accessibilityLabel="Start coaching"
+            accessibilityLabel="Begin"
             onPress={handleContinue}
             disabled={isSaving}
             style={[styles.primaryButton, isSaving ? styles.primaryButtonDisabled : null]}
@@ -118,7 +89,7 @@ export const WelcomeScreen = ({ navigation }: Props) => {
             {isSaving ? (
               <ActivityIndicator color="#ffffff" />
             ) : (
-              <Text style={styles.primaryButtonText}>Start coaching</Text>
+              <Text style={styles.primaryButtonText}>Begin</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -198,28 +169,6 @@ const styles = StyleSheet.create({
   hintRow: { flexDirection: "row", justifyContent: "space-between" },
   hint: { color: "#64748b", fontSize: 12, flex: 1, marginRight: 8 },
   counter: { color: "#94a3b8", fontSize: 12 },
-  memoryCard: {
-    borderWidth: 1,
-    borderColor: "#dbe3ef",
-    borderRadius: 14,
-    padding: 10,
-    gap: 8,
-    backgroundColor: "#f8fafc",
-  },
-  memoryTitle: { color: "#0f172a", fontWeight: "700", fontSize: 13 },
-  memoryText: { color: "#475569", fontSize: 13, lineHeight: 18 },
-  memoryActions: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
-  memoryButton: {
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "#dbe3ef",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    backgroundColor: "#fff",
-  },
-  memoryButtonActive: { borderColor: "#1e40af", backgroundColor: "#dbeafe" },
-  memoryButtonText: { color: "#334155", fontSize: 12, fontWeight: "600" },
-  memoryButtonTextActive: { color: "#1e3a8a" },
   primaryButton: {
     marginTop: 4,
     backgroundColor: "#0f172a",
