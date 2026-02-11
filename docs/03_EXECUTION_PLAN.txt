@@ -245,6 +245,9 @@ Focus:
 - Focus Coach experience
 - Calm monetization moment
 
+Reference:
+- docs/10_DAY8_PART1_WRITING_TASKS.md (Part 1 drafting + compression + shot plan)
+
 ---
 
 ## Day 9 — Submission Writing
