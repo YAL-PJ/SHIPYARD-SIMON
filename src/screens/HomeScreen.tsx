@@ -44,7 +44,7 @@ export const HomeScreen = ({ navigation }: Props) => {
             text: "Register",
             onPress: () => navigation.navigate("Paywall", { coach, source: "edit" }),
           },
-        ]
+        ],
       );
       return;
     }
@@ -63,8 +63,18 @@ export const HomeScreen = ({ navigation }: Props) => {
         <Text style={styles.eyebrow}>MARA</Text>
         <Text style={styles.title}>Choose your coaching mode</Text>
         <Text style={styles.subtitle}>
-          One focused conversation at a time. Long-press or tap ✦ to customize a coach.
+          Move from clarity to action. Every session ends with a saved outcome you can revisit.
         </Text>
+      </View>
+
+      <View style={styles.quickActions}>
+        <TouchableOpacity
+          accessibilityRole="button"
+          style={styles.timelineButton}
+          onPress={() => navigation.navigate("Progress")}
+        >
+          <Text style={styles.timelineButtonText}>Open Progress Timeline</Text>
+        </TouchableOpacity>
       </View>
 
       {!isSubscribed ? (
@@ -104,6 +114,8 @@ export const HomeScreen = ({ navigation }: Props) => {
           </View>
         ))}
       </View>
+
+      <Text style={styles.scopeText}>Coaching support only. Not medical, legal, or financial advice.</Text>
 
       <Modal transparent visible={menuCoach !== null} animationType="fade" onRequestClose={closeMenu}>
         <Pressable style={styles.overlay} onPress={closeMenu}>
@@ -159,6 +171,24 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     color: "#475569",
     maxWidth: 360,
+  },
+  quickActions: {
+    marginBottom: 14,
+  },
+  timelineButton: {
+    alignSelf: "flex-start",
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#cbd5e1",
+    backgroundColor: "#ffffff",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  timelineButtonText: {
+    color: "#1e293b",
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: "600",
   },
   cardList: {
     gap: 14,
@@ -265,5 +295,12 @@ const styles = StyleSheet.create({
     color: "#6b7280",
     fontSize: 14,
     lineHeight: 19,
+  },
+  scopeText: {
+    marginTop: "auto",
+    color: "#64748b",
+    fontSize: 12,
+    lineHeight: 18,
+    paddingTop: 14,
   },
 });

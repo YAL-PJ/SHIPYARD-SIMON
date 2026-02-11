@@ -16,12 +16,14 @@ import { COACH_OPENING_MESSAGES } from "../ai/prompts";
 import { ChatMessage } from "../types/chat";
 import { RootStackParamList } from "../types/navigation";
 import { CoachEditConfig } from "../types/editCoach";
+import { SessionOutcomeData } from "../types/progress";
 import { getUserContext } from "../storage/preferences";
 import { getCoachEditConfig } from "../storage/editedCoach";
 import {
   consumeDailyFreeMessage,
   isChatPausedForToday,
 } from "../storage/dailyLimit";
+import { saveSessionWithOutcome } from "../storage/progress";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Chat">;
 
@@ -33,6 +35,49 @@ const ERROR_MESSAGE = "Something went wrong. Try again.";
 
 const createMessageId = () =>
   `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+const deriveDraftOutcome = (
+  coach: Props["route"]["params"]["coach"],
+  messages: ChatMessage[],
+): SessionOutcomeData | null => {
+  const conversational = messages.filter((message) => !message.isOpening && !message.isError);
+  const userMessages = conversational.filter((message) => message.role === "user");
+  const assistantMessages = conversational.filter((message) => message.role === "assistant");
+
+  if (userMessages.length === 0 || assistantMessages.length === 0) {
+    return null;
+  }
+
+  const assistantLatest = assistantMessages[assistantMessages.length - 1]?.content ?? "";
+  const userLatest = userMessages[userMessages.length - 1]?.content ?? "";
+  const parts = assistantLatest
+    .split(/(?<=[.!?])\s+/)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
+  if (coach === "Focus Coach") {
+    return {
+      kind: "focus",
+      priority: parts[0] ?? userLatest,
+      firstStep: parts[1] ?? "Take one concrete step in the next 20 minutes.",
+      isCompleted: false,
+    };
+  }
+
+  if (coach === "Decision Coach") {
+    return {
+      kind: "decision",
+      decision: parts[0] ?? userLatest,
+      tradeoffAccepted: parts[1] ?? "Accept one downside that comes with this choice.",
+    };
+  }
+
+  return {
+    kind: "reflection",
+    insight: parts[0] ?? userLatest,
+    questionToCarry: parts[1] ?? "What wants more attention before your next session?",
+  };
+};
 
 const MessageContent = ({ message }: MessageContentProps) => {
   const isUser = message.role === "user";
@@ -66,8 +111,16 @@ export const ChatScreen = ({ navigation, route }: Props) => {
   const [hasPendingReply, setHasPendingReply] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [editedCoach, setEditedCoach] = useState<CoachEditConfig | null>(null);
+  const [draftOutcome, setDraftOutcome] = useState<SessionOutcomeData | null>(null);
+  const sessionStartedAtRef = useRef(new Date().toISOString());
+  const hasPersistedSessionRef = useRef(false);
+  const messagesRef = useRef<ChatMessage[]>([]);
 
   useEffect(() => {
+    messagesRef.current = [];
+    sessionStartedAtRef.current = new Date().toISOString();
+    hasPersistedSessionRef.current = false;
+    setDraftOutcome(null);
     setMessages([
       {
         id: createMessageId(),
@@ -77,6 +130,11 @@ export const ChatScreen = ({ navigation, route }: Props) => {
       },
     ]);
   }, [openingMessage]);
+
+
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -110,6 +168,25 @@ export const ChatScreen = ({ navigation, route }: Props) => {
     }, [isSubscribed]),
   );
 
+
+  useFocusEffect(
+    React.useCallback(() => {
+      return () => {
+        if (hasPersistedSessionRef.current) {
+          return;
+        }
+
+        hasPersistedSessionRef.current = true;
+
+        void saveSessionWithOutcome({
+          coach,
+          startedAt: sessionStartedAtRef.current,
+          messages: messagesRef.current,
+        });
+      };
+    }, [coach]),
+  );
+
   useEffect(() => {
     if (!hasPendingReply || !isSubscribed || isSending) {
       return;
@@ -135,15 +212,17 @@ export const ChatScreen = ({ navigation, route }: Props) => {
 
         const assistantContent = reply || ERROR_MESSAGE;
 
-        setMessages((prev) => [
-          ...prev,
-          {
+        setMessages((prev) => {
+          const assistantMessage: ChatMessage = {
             id: createMessageId(),
             role: "assistant",
             content: assistantContent,
             isError: !reply,
-          },
-        ]);
+          };
+          const next = [...prev, assistantMessage];
+          setDraftOutcome(deriveDraftOutcome(coach, next));
+          return next;
+        });
       } catch {
         setMessages((prev) => [
           ...prev,
@@ -180,6 +259,7 @@ export const ChatScreen = ({ navigation, route }: Props) => {
 
     setInput("");
     setMessages(nextMessages);
+    setDraftOutcome(deriveDraftOutcome(coach, nextMessages));
 
     if (!isSubscribed) {
       const usage = await consumeDailyFreeMessage();
@@ -204,25 +284,29 @@ export const ChatScreen = ({ navigation, route }: Props) => {
 
       const assistantContent = reply || ERROR_MESSAGE;
 
-      setMessages((prev) => [
-        ...prev,
-        {
+      setMessages((prev) => {
+        const assistantMessage: ChatMessage = {
           id: createMessageId(),
           role: "assistant",
           content: assistantContent,
           isError: !reply,
-        },
-      ]);
+        };
+        const next = [...prev, assistantMessage];
+        setDraftOutcome(deriveDraftOutcome(coach, next));
+        return next;
+      });
     } catch {
-      setMessages((prev) => [
-        ...prev,
-        {
+      setMessages((prev) => {
+        const assistantMessage: ChatMessage = {
           id: createMessageId(),
           role: "assistant",
           content: ERROR_MESSAGE,
           isError: true,
-        },
-      ]);
+        };
+        const next = [...prev, assistantMessage];
+        setDraftOutcome(deriveDraftOutcome(coach, next));
+        return next;
+      });
     } finally {
       setIsSending(false);
     }
@@ -233,7 +317,7 @@ export const ChatScreen = ({ navigation, route }: Props) => {
 
   const helperText = isPaused
     ? "Daily free limit reached. Upgrade to keep the conversation going."
-    : "Ask one concrete question for the clearest answer.";
+    : "One session at a time. Aim for one clear takeaway.";
 
   return (
     <View style={styles.container}>
@@ -262,6 +346,29 @@ export const ChatScreen = ({ navigation, route }: Props) => {
           })
         }
       />
+      {draftOutcome ? (
+        <View style={styles.outcomeCard}>
+          <Text style={styles.outcomeTitle}>Session Outcome</Text>
+          {draftOutcome.kind === "focus" ? (
+            <>
+              <Text style={styles.outcomeLine}>Priority: {draftOutcome.priority}</Text>
+              <Text style={styles.outcomeLine}>First Step: {draftOutcome.firstStep}</Text>
+            </>
+          ) : null}
+          {draftOutcome.kind === "decision" ? (
+            <>
+              <Text style={styles.outcomeLine}>Decision: {draftOutcome.decision}</Text>
+              <Text style={styles.outcomeLine}>Tradeoff Accepted: {draftOutcome.tradeoffAccepted}</Text>
+            </>
+          ) : null}
+          {draftOutcome.kind === "reflection" ? (
+            <>
+              <Text style={styles.outcomeLine}>Insight: {draftOutcome.insight}</Text>
+              <Text style={styles.outcomeLine}>Question to Carry: {draftOutcome.questionToCarry}</Text>
+            </>
+          ) : null}
+        </View>
+      ) : null}
       <Text style={styles.helperText}>{helperText}</Text>
       <View style={styles.inputRow}>
         <TextInput
@@ -364,6 +471,27 @@ const styles = StyleSheet.create({
     color: "#0f172a",
     fontSize: 16,
     lineHeight: 24,
+  },
+  outcomeCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#dbe3ef",
+    backgroundColor: "#ffffff",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 8,
+    gap: 4,
+  },
+  outcomeTitle: {
+    color: "#334155",
+    fontSize: 12,
+    letterSpacing: 0.6,
+    fontWeight: "700",
+  },
+  outcomeLine: {
+    color: "#0f172a",
+    fontSize: 14,
+    lineHeight: 20,
   },
   helperText: {
     fontSize: 13,
