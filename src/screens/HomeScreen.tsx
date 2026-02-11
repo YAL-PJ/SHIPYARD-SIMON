@@ -62,12 +62,12 @@ export const HomeScreen = ({ navigation }: Props) => {
       {!isSubscribed ? (
         <TouchableOpacity
           accessibilityRole="button"
-          style={styles.plansButton}
+          style={styles.upgradeButton}
           onPress={() =>
             navigation.navigate("Paywall", { coach: "Focus Coach", source: "home" })
           }
         >
-          <Text style={styles.plansButtonText}>See Free vs Pro</Text>
+          <Text style={styles.upgradeButtonText}>Upgrade</Text>
         </TouchableOpacity>
       ) : null}
       <View style={styles.cardList}>
@@ -132,17 +132,18 @@ const styles = StyleSheet.create({
   cardList: {
     gap: 14,
   },
-  plansButton: {
-    alignSelf: "flex-start",
+  upgradeButton: {
+    position: "absolute",
+    right: 24,
+    bottom: 24,
     borderWidth: 1,
     borderColor: "#d1d5db",
     borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
     backgroundColor: "#fff",
-    marginBottom: 16,
   },
-  plansButtonText: {
+  upgradeButtonText: {
     color: "#374151",
     fontSize: 15,
     lineHeight: 20,
