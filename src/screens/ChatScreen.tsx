@@ -10,25 +10,15 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 
-import { fetchCoachReply, fetchSessionOutcome, fetchSessionReport } from "../ai/openai";
-import { useMonetization } from "../context/MonetizationContext";
+import { fetchCoachReply } from "../ai/openai";
 import { COACH_OPENING_MESSAGES } from "../ai/prompts";
+import { useMonetization } from "../context/MonetizationContext";
 import { ChatMessage } from "../types/chat";
 import { RootStackParamList } from "../types/navigation";
-import { CoachEditConfig } from "../types/editCoach";
 import { SessionOutcomeData } from "../types/progress";
 import { getUserContext } from "../storage/preferences";
-import { getActiveMemoryItems, isMemoryEnabled } from "../storage/memory";
-import { getCoachEditConfig } from "../storage/editedCoach";
-import { getInstructionPackContext } from "../storage/instructionPacks";
-import { getConnectorContext } from "../storage/connectors";
-import {
-  consumeDailyFreeMessage,
-  isChatPausedForToday,
-} from "../storage/dailyLimit";
 import { saveSessionWithOutcome } from "../storage/progress";
-import { trackEvent } from "../storage/analytics";
-import { ANALYTICS_EVENT } from "../types/analytics";
+import { consumeDailyFreeMessage, isChatPausedForToday } from "../storage/dailyLimit";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Chat">;
 
@@ -86,41 +76,6 @@ const deriveDraftOutcome = (
   };
 };
 
-const buildCoachingContext = async () => {
-  const [userContext, memoryEnabled, memoryItems, instructionContext, connectorContext] = await Promise.all([
-    getUserContext(),
-    isMemoryEnabled(),
-    getActiveMemoryItems(),
-    getInstructionPackContext(),
-    getConnectorContext(),
-  ]);
-
-  const contextParts: string[] = [];
-
-  if (userContext.trim().length > 0) {
-    contextParts.push(userContext);
-  }
-
-  if (memoryEnabled && memoryItems.length > 0) {
-    const memoryBlock = memoryItems
-      .slice(0, 6)
-      .map((item) => `- ${item.label}`)
-      .join("\n");
-
-    contextParts.push(["Remembered patterns:", memoryBlock].join("\n"));
-  }
-
-  if (instructionContext) {
-    contextParts.push(instructionContext);
-  }
-
-  if (connectorContext) {
-    contextParts.push(connectorContext);
-  }
-
-  return contextParts.join("\n\n");
-};
-
 const MessageContent = ({ message }: MessageContentProps) => {
   const isUser = message.role === "user";
 
@@ -139,7 +94,7 @@ const MessageContent = ({ message }: MessageContentProps) => {
 };
 
 export const ChatScreen = ({ navigation, route }: Props) => {
-  const { coach, quickMode = false } = route.params;
+  const { coach, initialPriority } = route.params;
   const { isSubscribed } = useMonetization();
   const listRef = useRef<FlatList<ChatMessage>>(null);
   const openingMessage = useMemo(
@@ -150,9 +105,7 @@ export const ChatScreen = ({ navigation, route }: Props) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
-  const [hasPendingReply, setHasPendingReply] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
-  const [editedCoach, setEditedCoach] = useState<CoachEditConfig | null>(null);
   const [draftOutcome, setDraftOutcome] = useState<SessionOutcomeData | null>(null);
   const [sessionPhase, setSessionPhase] = useState<SessionPhase>("start");
   const [isClosingSession, setIsClosingSession] = useState(false);
@@ -168,15 +121,42 @@ export const ChatScreen = ({ navigation, route }: Props) => {
     hasNavigatedAfterCloseRef.current = false;
     setSessionPhase("start");
     setDraftOutcome(null);
-    setMessages([
+
+    const seededMessages: ChatMessage[] = [
       {
         id: createMessageId(),
         role: "assistant",
         content: openingMessage,
         isOpening: true,
       },
-    ]);
-  }, [openingMessage]);
+    ];
+
+    if (initialPriority?.trim()) {
+      seededMessages.push({
+        id: createMessageId(),
+        role: "user",
+        content: initialPriority.trim(),
+      });
+    }
+
+    setMessages(seededMessages);
+  }, [initialPriority, openingMessage]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const syncPause = async () => {
+        if (isSubscribed) {
+          setIsPaused(false);
+          return;
+        }
+
+        const paused = await isChatPausedForToday();
+        setIsPaused(paused);
+      };
+
+      void syncPause();
+    }, [isSubscribed]),
+  );
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -195,38 +175,6 @@ export const ChatScreen = ({ navigation, route }: Props) => {
     setSessionPhase("clarify");
   }, [draftOutcome, messages]);
 
-  useFocusEffect(
-    React.useCallback(() => {
-      const loadEditedCoach = async () => {
-        if (!isSubscribed) {
-          setEditedCoach(null);
-          return;
-        }
-
-        const config = await getCoachEditConfig(coach);
-        setEditedCoach(config);
-      };
-
-      void loadEditedCoach();
-    }, [coach, isSubscribed]),
-  );
-
-  useFocusEffect(
-    React.useCallback(() => {
-      const syncPause = async () => {
-        if (isSubscribed) {
-          setIsPaused(false);
-          return;
-        }
-
-        const paused = await isChatPausedForToday();
-        setIsPaused(paused);
-      };
-
-      void syncPause();
-    }, [isSubscribed]),
-  );
-
   const persistSession = async (messagesToPersist: ChatMessage[]) => {
     if (hasPersistedSessionRef.current) {
       return;
@@ -235,39 +183,13 @@ export const ChatScreen = ({ navigation, route }: Props) => {
     hasPersistedSessionRef.current = true;
 
     const localOutcome = deriveDraftOutcome(coach, messagesToPersist);
-    const aiOutcome = await fetchSessionOutcome({
-      coach,
-      messages: messagesToPersist,
-    });
-    const chosenOutcome = aiOutcome ?? localOutcome;
-
-    const aiReport = chosenOutcome
-      ? await fetchSessionReport({
-          coach,
-          messages: messagesToPersist,
-          outcome: chosenOutcome,
-        })
-      : null;
-
-    await trackEvent(ANALYTICS_EVENT.OUTCOME_EXTRACTION_RESULT, {
-      coach,
-      used_ai_outcome: Boolean(aiOutcome),
-      used_fallback_outcome: !aiOutcome,
-    });
-
-    await trackEvent(ANALYTICS_EVENT.SESSION_REPORT_EXTRACTION_RESULT, {
-      coach,
-      used_ai_report: Boolean(aiReport),
-      report_confidence: aiReport?.confidence ?? null,
-      used_fallback_report: !aiReport,
-    });
 
     await saveSessionWithOutcome({
       coach,
       startedAt: sessionStartedAtRef.current,
       messages: messagesToPersist,
-      outcomeOverride: chosenOutcome,
-      reportOverride: aiReport,
+      outcomeOverride: localOutcome,
+      reportOverride: null,
     });
   };
 
@@ -280,61 +202,42 @@ export const ChatScreen = ({ navigation, route }: Props) => {
   );
 
   useEffect(() => {
-    if (!hasPendingReply || !isSubscribed || isSending) {
-      return;
-    }
+    const autoReplyToSeed = async () => {
+      const conversational = messages.filter((m) => !m.isOpening && !m.isError);
+      const hasAssistantReply = conversational.some((m) => m.role === "assistant");
+      const firstUserMessage = conversational.find((m) => m.role === "user");
 
-    const completePendingReply = async () => {
-      const latestMessages = messages;
-
-      if (latestMessages.length === 0) {
+      if (!firstUserMessage || hasAssistantReply || isSending) {
         return;
       }
 
       setIsSending(true);
-
       try {
-        const userContext = await buildCoachingContext();
+        const userContext = await getUserContext();
         const reply = await fetchCoachReply({
           coach,
-          messages: latestMessages,
+          messages,
           userContext,
-          editedCoach,
         });
-
-        const assistantContent = reply || ERROR_MESSAGE;
 
         setMessages((prev) => {
           const assistantMessage: ChatMessage = {
             id: createMessageId(),
             role: "assistant",
-            content: assistantContent,
+            content: reply || ERROR_MESSAGE,
             isError: !reply,
           };
           const next = [...prev, assistantMessage];
           setDraftOutcome(deriveDraftOutcome(coach, next));
           return next;
         });
-      } catch {
-        setMessages((prev) => {
-          const assistantMessage: ChatMessage = {
-            id: createMessageId(),
-            role: "assistant",
-            content: ERROR_MESSAGE,
-            isError: true,
-          };
-          const next = [...prev, assistantMessage];
-          setDraftOutcome(deriveDraftOutcome(coach, next));
-          return next;
-        });
       } finally {
-        setHasPendingReply(false);
         setIsSending(false);
       }
     };
 
-    void completePendingReply();
-  }, [coach, editedCoach, hasPendingReply, isSending, isSubscribed, messages]);
+    void autoReplyToSeed();
+  }, [coach, isSending, messages]);
 
   const handleSend = async () => {
     const trimmed = input.trim();
@@ -359,8 +262,7 @@ export const ChatScreen = ({ navigation, route }: Props) => {
       const usage = await consumeDailyFreeMessage();
 
       if (!usage.isWithinLimit) {
-        setHasPendingReply(true);
-        navigation.navigate("Paywall", { coach });
+        navigation.navigate("Paywall", { coach, source: "chat" });
         return;
       }
     }
@@ -368,12 +270,11 @@ export const ChatScreen = ({ navigation, route }: Props) => {
     setIsSending(true);
 
     try {
-      const userContext = await buildCoachingContext();
+      const userContext = await getUserContext();
       const reply = await fetchCoachReply({
         coach,
         messages: nextMessages,
         userContext,
-        editedCoach,
       });
 
       const assistantContent = reply || ERROR_MESSAGE;
@@ -406,91 +307,59 @@ export const ChatScreen = ({ navigation, route }: Props) => {
     }
   };
 
-  const isCrisisSignal = /suicid|self-harm|harm myself|kill myself|panic attack|unsafe/i.test(messages.map((m) => m.content).join(" "));
-
-  const closeSessionIfReady = async (source: "auto" | "manual") => {
+  const closeSessionIfReady = async () => {
     const conversationalMessages = messagesRef.current.filter((m) => !m.isOpening && !m.isError);
 
-    if (conversationalMessages.length < (quickMode ? 1 : 2)) {
-      await trackEvent(ANALYTICS_EVENT.SESSION_CLOSE_BLOCKED, {
-        coach,
-        reason: "insufficient_conversation",
-        quick_mode: quickMode,
-      });
-      return false;
-    }
-
-    if (!draftOutcome) {
-      await trackEvent(ANALYTICS_EVENT.SESSION_CLOSE_BLOCKED, { coach, reason: "missing_outcome" });
-      return false;
+    if (conversationalMessages.length < 2 || !draftOutcome) {
+      return;
     }
 
     setIsClosingSession(true);
     await persistSession(messagesRef.current);
-    await trackEvent(ANALYTICS_EVENT.SESSION_CLOSED, {
-      coach,
-      outcome_kind: draftOutcome.kind,
-      source,
-      quick_mode: quickMode,
-    });
     setIsClosingSession(false);
 
     if (!hasNavigatedAfterCloseRef.current) {
       hasNavigatedAfterCloseRef.current = true;
       navigation.navigate("Progress");
     }
-
-    return true;
   };
 
-
   useEffect(() => {
-    if (!draftOutcome || isSending || hasPendingReply || isClosingSession) {
+    if (!draftOutcome || isSending || isClosingSession) {
       return;
     }
 
     const timeout = setTimeout(() => {
-      void closeSessionIfReady("auto");
+      void closeSessionIfReady();
     }, 1100);
 
     return () => clearTimeout(timeout);
-  }, [draftOutcome, hasPendingReply, isClosingSession, isSending]);
-  const isSendDisabled =
-    isSending || isPaused || input.trim().length === 0 || hasPendingReply;
+  }, [draftOutcome, isClosingSession, isSending]);
+
+  const isSendDisabled = isSending || isPaused || input.trim().length === 0;
 
   const helperText = isPaused
-    ? "Daily free limit reached. Upgrade to keep the conversation going."
+    ? "Free plan limit reached for today. Upgrade to Plus for unlimited sessions."
     : sessionPhase === "start"
-      ? "Start with one concrete situation."
+      ? "Step 1: name one priority in plain language."
       : sessionPhase === "clarify"
-        ? "Stay with one thread until it becomes clear."
-         : quickMode
-        ? "2-minute mode: keep it short, then let the outcome close the session automatically."
-        : "Outcome detected. We will auto-close this session in a moment.";
+        ? "Step 2–3: stay with facts and tradeoffs until the choice is clear."
+        : "Step 4: outcome captured. Closing session.";
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <View>
-          <Text style={styles.eyebrow}>{quickMode ? "2-MINUTE SESSION" : "COACHING SESSION"}</Text>
-          <Text style={styles.headerText}>
-            {editedCoach ? `${coach} • Edited` : coach}
-          </Text>
-        </View>
-        <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.safetyButton} onPress={() => navigation.navigate("Safety")}>
-            <Text style={styles.safetyButtonText}>Safety</Text>
-          </TouchableOpacity>
-          <View style={styles.statusPill}>
-            <Text style={styles.statusText}>{isSubscribed ? "Plus" : "Free"}</Text>
-          </View>
+          <Text style={styles.eyebrow}>CLARITY SESSION</Text>
+          <Text style={styles.headerText}>One priority, one outcome</Text>
         </View>
       </View>
 
       <View style={styles.phaseRow}>
-        <Text style={[styles.phasePill, sessionPhase === "start" && styles.phasePillActive]}>Start</Text>
-        <Text style={[styles.phasePill, sessionPhase === "clarify" && styles.phasePillActive]}>Clarify</Text>
-        <Text style={[styles.phasePill, sessionPhase === "close" && styles.phasePillActive]}>Close</Text>
+        <Text style={[styles.phasePill, sessionPhase === "start" && styles.phasePillActive]}>1. Priority</Text>
+        <Text style={[styles.phasePill, sessionPhase === "clarify" && styles.phasePillActive]}>2. Reality</Text>
+        <Text style={[styles.phasePill, sessionPhase === "clarify" && styles.phasePillActive]}>3. Decision</Text>
+        <Text style={[styles.phasePill, sessionPhase === "close" && styles.phasePillActive]}>4. Capture</Text>
       </View>
 
       <FlatList
@@ -507,47 +376,43 @@ export const ChatScreen = ({ navigation, route }: Props) => {
           })
         }
       />
+
       {draftOutcome ? (
         <View style={styles.outcomeCard}>
-          <Text style={styles.outcomeTitle}>Session Outcome</Text>
+          <Text style={styles.outcomeTitle}>Session outcome</Text>
           {draftOutcome.kind === "focus" ? (
             <>
               <Text style={styles.outcomeLine}>Priority: {draftOutcome.priority}</Text>
-              <Text style={styles.outcomeLine}>First Step: {draftOutcome.firstStep}</Text>
+              <Text style={styles.outcomeLine}>First step: {draftOutcome.firstStep}</Text>
             </>
           ) : null}
           {draftOutcome.kind === "decision" ? (
             <>
               <Text style={styles.outcomeLine}>Decision: {draftOutcome.decision}</Text>
-              <Text style={styles.outcomeLine}>Tradeoff Accepted: {draftOutcome.tradeoffAccepted}</Text>
+              <Text style={styles.outcomeLine}>Tradeoff: {draftOutcome.tradeoffAccepted}</Text>
             </>
           ) : null}
           {draftOutcome.kind === "reflection" ? (
             <>
               <Text style={styles.outcomeLine}>Insight: {draftOutcome.insight}</Text>
-              <Text style={styles.outcomeLine}>Question to Carry: {draftOutcome.questionToCarry}</Text>
+              <Text style={styles.outcomeLine}>Carry: {draftOutcome.questionToCarry}</Text>
             </>
           ) : null}
           <Text style={styles.autoCloseText}>
-            {isClosingSession ? "Closing session…" : "Session will close automatically."}
+            {isClosingSession ? "Closing…" : "Closing automatically."}
           </Text>
         </View>
       ) : null}
-{isCrisisSignal ? (
-        <TouchableOpacity style={styles.crisisCard} onPress={() => navigation.navigate("Safety")}>
-          <Text style={styles.crisisTitle}>Need urgent support instead of coaching?</Text>
-          <Text style={styles.crisisText}>Open crisis resources and boundaries.</Text>
-        </TouchableOpacity>
-      ) : null}
+
       <Text style={styles.helperText}>{helperText}</Text>
       <View style={styles.inputRow}>
         <TextInput
-          placeholder="Type a message"
+          placeholder="Continue"
           placeholderTextColor="#94a3b8"
           style={styles.input}
           value={input}
           onChangeText={setInput}
-          editable={!isSending && !isPaused && !hasPendingReply}
+          editable={!isSending && !isPaused}
         />
         <TouchableOpacity
           accessibilityRole="button"
@@ -594,40 +459,11 @@ const styles = StyleSheet.create({
     color: "#0f172a",
     letterSpacing: -0.4,
   },
-  headerActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  safetyButton: {
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "#dbe3ef",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    backgroundColor: "#fff",
-  },
-  safetyButtonText: {
-    color: "#334155",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  statusPill: {
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: "#e2e8f0",
-  },
-  statusText: {
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: "700",
-    color: "#334155",
-  },
   phaseRow: {
     flexDirection: "row",
     gap: 6,
     marginBottom: 10,
+    flexWrap: "wrap",
   },
   phasePill: {
     paddingHorizontal: 10,
@@ -704,24 +540,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
     marginTop: 2,
-  },
-  crisisCard: {
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#fecaca",
-    backgroundColor: "#fff1f2",
-    padding: 10,
-    gap: 4,
-    marginTop: 4,
-  },
-  crisisTitle: {
-    color: "#9f1239",
-    fontWeight: "700",
-    fontSize: 13,
-  },
-  crisisText: {
-    color: "#881337",
-    fontSize: 12,
   },
   helperText: {
     fontSize: 13,
