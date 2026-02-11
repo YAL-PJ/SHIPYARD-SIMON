@@ -7,9 +7,12 @@ require("dotenv").config();
 
 const OpenAI = require("openai");
 
-const MODEL = "gpt-4o-mini";
-const TEMPERATURE = 0.2;
-const MAX_TOKENS = 200;
+const MODEL =
+  process.env.OPENAI_MODEL?.trim() ||
+  process.env.EXPO_PUBLIC_OPENAI_MODEL?.trim() ||
+  "gpt-4.1-mini";
+const TEMPERATURE = Number(process.env.OPENAI_TEMPERATURE || 0.2);
+const MAX_TOKENS = Number(process.env.OPENAI_MAX_TOKENS || 200);
 const OUTCOME_MAX_TOKENS = 180;
 const REPORT_MAX_TOKENS = 220;
 const MAX_HISTORY_MESSAGES = 24;
