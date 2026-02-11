@@ -59,6 +59,17 @@ export const HomeScreen = ({ navigation }: Props) => {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>What do you need right now?</Text>
+      {!isSubscribed ? (
+        <TouchableOpacity
+          accessibilityRole="button"
+          style={styles.plansButton}
+          onPress={() =>
+            navigation.navigate("Paywall", { coach: "Focus Coach", source: "home" })
+          }
+        >
+          <Text style={styles.plansButtonText}>See Free vs Pro</Text>
+        </TouchableOpacity>
+      ) : null}
       <View style={styles.cardList}>
         {COACHES.map((coach) => (
           <View key={coach.label} style={styles.card}>
@@ -120,6 +131,22 @@ const styles = StyleSheet.create({
   },
   cardList: {
     gap: 14,
+  },
+  plansButton: {
+    alignSelf: "flex-start",
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: "#fff",
+    marginBottom: 16,
+  },
+  plansButtonText: {
+    color: "#374151",
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: "500",
   },
   card: {
     borderRadius: 18,
