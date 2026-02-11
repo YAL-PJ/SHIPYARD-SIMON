@@ -10,6 +10,7 @@ import {
   WeeklySummaryCard,
 } from "../types/progress";
 import { trackEvent } from "./analytics";
+import { syncMemoryFromOutcome } from "./memory";
 
 const OUTCOMES_KEY = "shipyard.outcomes";
 const HISTORY_KEY = "shipyard.sessionHistory";
@@ -28,12 +29,11 @@ const safeSentence = (value: string, fallback: string) => {
   return capped.endsWith(".") ? capped : `${capped}.`;
 };
 
-const splitSentences = (value: string) => {
-  return value
+const splitSentences = (value: string) =>
+  value
     .split(/(?<=[.!?])\s+/)
     .map((entry) => entry.trim())
     .filter(Boolean);
-};
 
 const deriveOutcomeData = (
   coach: CoachLabel,
@@ -83,7 +83,6 @@ const deriveOutcomeData = (
     ),
   };
 };
-
 
 const isOutcomeCompatibleWithCoach = (
   coach: CoachLabel,
@@ -296,6 +295,7 @@ export const saveSessionWithOutcome = async ({
   ]);
 
   await maybeCreateWeeklySummary(nextOutcomes);
+  await syncMemoryFromOutcome(outcomeCard);
 
   await trackEvent("session_saved", {
     coach,
@@ -323,6 +323,12 @@ export const updateOutcomeCard = async (
       outcome_kind: updated.data.kind,
       coach: updated.coach,
     });
+
+    if (updated.data.kind === "focus" && updated.data.isCompleted) {
+      await trackEvent("outcome_focus_completed", {
+        outcome_id: updated.id,
+      });
+    }
   }
 };
 

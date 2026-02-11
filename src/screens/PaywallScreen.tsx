@@ -67,28 +67,35 @@ export const PaywallScreen = ({ navigation, route }: Props) => {
   return (
     <View style={styles.container}>
       <View style={styles.content}>
-        <Text style={styles.eyebrow}>MARA PRO</Text>
-        <Text style={styles.title}>Upgrade to Pro coaching</Text>
+        <Text style={styles.eyebrow}>MARA PLUS</Text>
+        <Text style={styles.title}>Upgrade to deeper coaching</Text>
         <Text style={styles.subtitle}>
-          Get unlimited chat, persistent memory, and custom coach editing. Cancel anytime from Settings.
+          Unlock memory controls, session reports, and continuity. Advanced Portal integrations are coming next.
         </Text>
         <View style={styles.planList}>
           <View style={styles.planColumn}>
             <Text style={styles.planTitle}>Free</Text>
-            <Text style={styles.planMeta}>Great for trying MARA</Text>
+            <Text style={styles.planMeta}>Core coaching</Text>
             <Text style={styles.planItem}>• 3 coaches</Text>
-            <Text style={styles.planItem}>• Daily chat limit</Text>
-            <Text style={styles.planItem}>• Context resets</Text>
+            <Text style={styles.planItem}>• Limited daily sessions</Text>
+            <Text style={styles.planItem}>• Timeline + history</Text>
           </View>
           <View style={[styles.planColumn, styles.planColumnFeatured]}>
             <View style={styles.proHeader}>
-              <Text style={styles.planTitle}>Pro</Text>
+              <Text style={styles.planTitle}>Plus</Text>
               <Text style={styles.bestValuePill}>BEST VALUE</Text>
             </View>
             <Text style={styles.planMetaFeatured}>For serious growth</Text>
-            <Text style={styles.planItem}>• Unlimited chats</Text>
-            <Text style={styles.planItem}>• Edit your coaches</Text>
-            <Text style={styles.planItem}>• Persistent context memory</Text>
+            <Text style={styles.planItem}>• Unlimited sessions</Text>
+            <Text style={styles.planItem}>• Memory controls + reports</Text>
+            <Text style={styles.planItem}>• Edit coaches + reminders</Text>
+          </View>
+          <View style={styles.planColumn}>
+            <Text style={styles.planTitle}>Advanced Portal</Text>
+            <Text style={styles.planMeta}>Rolling out</Text>
+            <Text style={styles.planItem}>• Premium instruction packs</Text>
+            <Text style={styles.planItem}>• Deeper context connectors</Text>
+            <Text style={styles.planItem}>• Long-term pattern intelligence</Text>
           </View>
         </View>
         <Text style={styles.trustCopy}>Secure purchase handled by Apple / Google.</Text>
@@ -100,7 +107,7 @@ export const PaywallScreen = ({ navigation, route }: Props) => {
           onPress={handlePurchase}
           disabled={isPurchasing}
         >
-          <Text style={styles.primaryText}>{isPurchasing ? "Processing..." : "Start Pro"}</Text>
+          <Text style={styles.primaryText}>{isPurchasing ? "Processing..." : "Start Plus"}</Text>
         </TouchableOpacity>
         <TouchableOpacity accessibilityRole="button" onPress={handleRestore}>
           <Text style={styles.restoreText}>Restore purchase</Text>

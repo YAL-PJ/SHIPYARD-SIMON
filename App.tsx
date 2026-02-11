@@ -38,11 +38,8 @@ export default function App() {
     }
 
     return {
-      index: 1,
-      routes: [
-        { name: "Home" },
-        { name: "Chat", params: { coach: "Focus Coach" } },
-      ],
+      index: 0,
+      routes: [{ name: "Home" }],
     };
   }, [hasSeenWelcome]);
 
