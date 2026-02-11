@@ -253,11 +253,14 @@ Reference:
 ## Day 9 — Submission Writing
 
 Deliverables:
-- [ ] Problem statement
-- [ ] Why 3 coaches
-- [ ] Behavior-first design rationale
-- [ ] Monetization logic
-- [ ] Roadmap (auto-routing, sharing later)
+- [x] Problem statement
+- [x] Why 3 coaches
+- [x] Behavior-first design rationale
+- [x] Monetization logic
+- [x] Roadmap (auto-routing, sharing later)
+
+Reference:
+- docs/11_DAY9_SUBMISSION_WRITING.md
 
 ---
 
