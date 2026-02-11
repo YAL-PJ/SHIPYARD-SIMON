@@ -4,6 +4,7 @@ import { SessionOutcomeCard } from "../types/progress";
 
 const MEMORY_ENABLED_KEY = "shipyard.memory.enabled";
 const MEMORY_ITEMS_KEY = "shipyard.memory.items";
+const DISMISSED_PATTERN_LABELS_KEY = "shipyard.memory.dismissedPatterns";
 
 export type MemoryItemType = "value" | "theme" | "pattern";
 
@@ -14,6 +15,8 @@ export type MemoryItem = {
   source: "system" | "user";
   updatedAt: string;
 };
+
+const normalizePatternLabel = (value: string) => sanitizeMemoryLabel(value).toLowerCase();
 
 const createId = () => `memory-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
@@ -50,6 +53,39 @@ export const getMemoryItems = async () => {
   return parseArray<MemoryItem>(raw).sort(
     (a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt),
   );
+};
+
+const getDismissedPatternLabels = async () => {
+  const raw = await AsyncStorage.getItem(DISMISSED_PATTERN_LABELS_KEY);
+  return parseArray<string>(raw).map((entry) => normalizePatternLabel(entry)).filter(Boolean);
+};
+
+const setDismissedPatternLabels = async (labels: string[]) => {
+  const unique = Array.from(new Set(labels.map((entry) => normalizePatternLabel(entry)).filter(Boolean)));
+  await AsyncStorage.setItem(DISMISSED_PATTERN_LABELS_KEY, JSON.stringify(unique.slice(0, 80)));
+};
+
+export const dismissPatternItem = async (memoryId: string) => {
+  const items = await getMemoryItems();
+  const target = items.find((item) => item.id === memoryId && item.source === "system" && item.type === "pattern");
+
+  if (!target) {
+    return false;
+  }
+
+  const dismissed = await getDismissedPatternLabels();
+  await setDismissedPatternLabels([...dismissed, target.label]);
+  return true;
+};
+
+export const restorePatternItem = async (label: string) => {
+  const normalized = normalizePatternLabel(label);
+  if (!normalized) {
+    return;
+  }
+
+  const dismissed = await getDismissedPatternLabels();
+  await setDismissedPatternLabels(dismissed.filter((entry) => entry !== normalized));
 };
 
 export const updateMemoryItem = async (
@@ -233,4 +269,17 @@ export const syncMemoryFromOutcome = async (
   );
 
   await AsyncStorage.setItem(MEMORY_ITEMS_KEY, JSON.stringify(next.slice(0, 48)));
+};
+
+export const getActiveMemoryItems = async () => {
+  const [items, dismissed] = await Promise.all([getMemoryItems(), getDismissedPatternLabels()]);
+  const dismissedSet = new Set(dismissed);
+
+  return items.filter((item) => {
+    if (item.source !== "system" || item.type !== "pattern") {
+      return true;
+    }
+
+    return !dismissedSet.has(normalizePatternLabel(item.label));
+  });
 };

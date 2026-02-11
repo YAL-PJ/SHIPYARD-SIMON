@@ -16,8 +16,11 @@ import { RootStackParamList } from "../types/navigation";
 import {
   MemoryItem,
   deleteMemoryItem,
+  dismissPatternItem,
+  getActiveMemoryItems,
   getMemoryItems,
   isMemoryEnabled,
+  restorePatternItem,
   saveManualMemoryItem,
   setMemoryEnabled,
   updateMemoryItem,
@@ -31,7 +34,7 @@ export const MemoryScreen = (_: Props) => {
   const [newItem, setNewItem] = useState("");
 
   const loadState = useCallback(async () => {
-    const [nextEnabled, nextItems] = await Promise.all([isMemoryEnabled(), getMemoryItems()]);
+    const [nextEnabled, nextItems] = await Promise.all([isMemoryEnabled(), getActiveMemoryItems()]);
     setEnabled(nextEnabled);
     setItems(nextItems);
   }, []);
@@ -45,6 +48,40 @@ export const MemoryScreen = (_: Props) => {
   const handleToggle = async (value: boolean) => {
     setEnabled(value);
     await setMemoryEnabled(value);
+  };
+
+
+  const handleDismissPattern = (item: MemoryItem) => {
+    Alert.alert(
+      "Dismiss pattern?",
+      "We will stop surfacing this detected pattern unless it changes over time.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Dismiss",
+          style: "destructive",
+          onPress: () =>
+            void dismissPatternItem(item.id).then(async (dismissed) => {
+              if (dismissed) {
+                await loadState();
+              }
+            }),
+        },
+      ],
+    );
+  };
+
+  const handleRestorePattern = async () => {
+    const allItems = await getMemoryItems();
+    const candidate = allItems.find((entry) => entry.source === "system" && entry.type === "pattern");
+
+    if (!candidate) {
+      Alert.alert("Nothing to restore", "There are no pattern memories available to restore right now.");
+      return;
+    }
+
+    await restorePatternItem(candidate.label);
+    await loadState();
   };
 
   const handleAdd = async () => {
@@ -82,6 +119,10 @@ export const MemoryScreen = (_: Props) => {
         </TouchableOpacity>
       </View>
 
+      <TouchableOpacity style={styles.restoreButton} onPress={() => void handleRestorePattern()}>
+        <Text style={styles.restoreButtonText}>Restore last dismissed pattern</Text>
+      </TouchableOpacity>
+
       <FlatList
         data={items}
         keyExtractor={(item) => item.id}
@@ -104,6 +145,13 @@ export const MemoryScreen = (_: Props) => {
               }
               onBlur={() => void loadState()}
             />
+
+            {item.source === "system" && item.type === "pattern" ? (
+              <TouchableOpacity style={styles.dismissButton} onPress={() => handleDismissPattern(item)}>
+                <Text style={styles.dismissText}>Dismiss pattern</Text>
+              </TouchableOpacity>
+            ) : null}
+
             <TouchableOpacity
               style={styles.deleteButton}
               onPress={() =>
@@ -179,6 +227,29 @@ const styles = StyleSheet.create({
     minHeight: 44,
     color: "#0f172a",
   },
+
+  restoreButton: {
+    marginTop: 8,
+    alignSelf: "flex-start",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#dbe3ef",
+    backgroundColor: "#fff",
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  restoreButtonText: { color: "#334155", fontWeight: "600", fontSize: 12 },
+  dismissButton: {
+    alignSelf: "flex-end",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#fde68a",
+    backgroundColor: "#fffbeb",
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  dismissText: { color: "#a16207", fontWeight: "600", fontSize: 12 },
+
   deleteButton: {
     alignSelf: "flex-end",
     borderRadius: 8,

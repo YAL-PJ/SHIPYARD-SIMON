@@ -18,9 +18,10 @@ import { RootStackParamList } from "../types/navigation";
 import { CoachEditConfig } from "../types/editCoach";
 import { SessionOutcomeData } from "../types/progress";
 import { getUserContext } from "../storage/preferences";
-import { getMemoryItems, isMemoryEnabled } from "../storage/memory";
+import { getActiveMemoryItems, isMemoryEnabled } from "../storage/memory";
 import { getCoachEditConfig } from "../storage/editedCoach";
 import { getInstructionPackContext } from "../storage/instructionPacks";
+import { getConnectorContext } from "../storage/connectors";
 import {
   consumeDailyFreeMessage,
   isChatPausedForToday,
@@ -85,11 +86,12 @@ const deriveDraftOutcome = (
 };
 
 const buildCoachingContext = async () => {
-  const [userContext, memoryEnabled, memoryItems, instructionContext] = await Promise.all([
+  const [userContext, memoryEnabled, memoryItems, instructionContext, connectorContext] = await Promise.all([
     getUserContext(),
     isMemoryEnabled(),
-    getMemoryItems(),
+    getActiveMemoryItems(),
     getInstructionPackContext(),
+    getConnectorContext(),
   ]);
 
   const contextParts: string[] = [];
@@ -109,6 +111,10 @@ const buildCoachingContext = async () => {
 
   if (instructionContext) {
     contextParts.push(instructionContext);
+  }
+
+  if (connectorContext) {
+    contextParts.push(connectorContext);
   }
 
   return contextParts.join("\n\n");
