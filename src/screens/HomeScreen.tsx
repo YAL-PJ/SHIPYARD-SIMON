@@ -82,11 +82,11 @@ export const HomeScreen = ({ navigation }: Props) => {
               <Text style={styles.cardText}>{coach.label}</Text>
               <TouchableOpacity
                 accessibilityRole="button"
-                accessibilityLabel={`More options for ${coach.label}`}
+                accessibilityLabel={`AI edit options for ${coach.label}`}
                 style={styles.moreButton}
                 onPress={() => setMenuCoach(coach.label)}
               >
-                <Text style={styles.moreButtonText}>•••</Text>
+                <Text style={styles.moreButtonText}>✦</Text>
               </TouchableOpacity>
             </Pressable>
           </View>
@@ -172,16 +172,16 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
     borderWidth: 1,
     borderColor: "#d1d5db",
-    borderRadius: 12,
+    borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    backgroundColor: "#fff",
+    backgroundColor: "#f9fafb",
   },
   moreButtonText: {
-    color: "#374151",
-    fontSize: 18,
-    lineHeight: 20,
-    fontWeight: "500",
+    color: "#4b5563",
+    fontSize: 16,
+    lineHeight: 18,
+    fontWeight: "600",
   },
   overlay: {
     flex: 1,
