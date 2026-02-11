@@ -31,6 +31,10 @@ type AnalyticsSummary = {
   total?: number;
   latestEventAt?: string | null;
   metrics?: Record<string, number>;
+  installs?: {
+    total?: number;
+    retainedD7?: number;
+  };
 };
 
 type AnalyticsSyncResponse = {

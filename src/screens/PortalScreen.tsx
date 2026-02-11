@@ -1,11 +1,19 @@
 import React, { useCallback, useState } from "react";
-import { FlatList, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import { FlatList, Pressable, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 
 import { RootStackParamList } from "../types/navigation";
 import { getInstructionPacks, toggleInstructionPack } from "../storage/instructionPacks";
-import { ConnectorConfig, getConnectors, setConnectorConnected, setConnectorContextHint } from "../storage/connectors";
+import {
+  ConnectorConfig,
+  getConnectors,
+  setConnectorConnected,
+  setConnectorContextHint,
+  setConnectorSourceUrl,
+  syncCalendarConnector,
+} from "../storage/connectors";
+import { trackEvent } from "../storage/analytics";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Portal">;
 
@@ -19,6 +27,7 @@ type PackRow = {
 export const PortalScreen = (_: Props) => {
   const [packs, setPacks] = useState<PackRow[]>([]);
   const [connectors, setConnectors] = useState<ConnectorConfig[]>([]);
+  const [syncMessage, setSyncMessage] = useState<string>("");
 
   const load = useCallback(async () => {
     const [nextPacks, nextConnectors] = await Promise.all([getInstructionPacks(), getConnectors()]);
@@ -32,13 +41,26 @@ export const PortalScreen = (_: Props) => {
     }, [load]),
   );
 
+  const handleCalendarSync = async () => {
+    const result = await syncCalendarConnector();
+
+    if (!result.ok) {
+      setSyncMessage(result.error);
+      await trackEvent("calendar_sync_failed", { reason: result.error });
+      return;
+    }
+
+    setSyncMessage(`Calendar synced at ${new Date(result.syncedAt).toLocaleString()}.`);
+    await trackEvent("calendar_sync_succeeded", { summary: result.summary.slice(0, 140) });
+    await load();
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Advanced Portal</Text>
       <Text style={styles.subtitle}>
         Enable instruction packs to shape deeper, premium coaching behavior over time.
       </Text>
-
 
       <View style={styles.connectorSection}>
         <Text style={styles.connectorTitle}>Advanced context connectors</Text>
@@ -57,10 +79,26 @@ export const PortalScreen = (_: Props) => {
                 onValueChange={(value) => void setConnectorConnected(connector.id, value).then(load)}
               />
             </View>
+
+            <TextInput
+              style={styles.connectorInput}
+              value={connector.externalSourceUrl}
+              placeholder="iCal URL: https://example.com/calendar.ics"
+              placeholderTextColor="#94a3b8"
+              onEndEditing={(event) =>
+                void setConnectorSourceUrl(connector.id, event.nativeEvent.text).then(load)
+              }
+              onChangeText={(value) =>
+                setConnectors((prev) =>
+                  prev.map((entry) => (entry.id === connector.id ? { ...entry, externalSourceUrl: value } : entry)),
+                )
+              }
+            />
+
             <TextInput
               style={styles.connectorInput}
               value={connector.contextHint}
-              placeholder="Example: Tue/Thu are meeting-heavy, protect deep work mornings."
+              placeholder="Optional manual note: protect deep work mornings."
               placeholderTextColor="#94a3b8"
               multiline
               onEndEditing={(event) =>
@@ -72,8 +110,19 @@ export const PortalScreen = (_: Props) => {
                 )
               }
             />
+
+            <Pressable style={styles.syncButton} onPress={() => void handleCalendarSync()}>
+              <Text style={styles.syncButtonText}>Sync calendar feed</Text>
+            </Pressable>
+
+            {connector.lastSyncedAt ? (
+              <Text style={styles.syncMeta}>Last synced: {new Date(connector.lastSyncedAt).toLocaleString()}</Text>
+            ) : null}
+            {connector.syncedSummary ? <Text style={styles.syncMeta}>{connector.syncedSummary}</Text> : null}
           </View>
         ))}
+
+        {syncMessage ? <Text style={styles.syncNotice}>{syncMessage}</Text> : null}
       </View>
 
       <FlatList
@@ -124,11 +173,21 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 10,
     paddingVertical: 8,
-    minHeight: 50,
+    minHeight: 44,
     color: "#0f172a",
     backgroundColor: "#f8fafc",
     fontSize: 13,
   },
+  syncButton: {
+    borderRadius: 10,
+    backgroundColor: "#0f172a",
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    alignSelf: "flex-start",
+  },
+  syncButtonText: { color: "#ffffff", fontWeight: "700", fontSize: 12 },
+  syncMeta: { color: "#475569", fontSize: 12, lineHeight: 18 },
+  syncNotice: { color: "#334155", fontSize: 12 },
 
   card: {
     borderWidth: 1,

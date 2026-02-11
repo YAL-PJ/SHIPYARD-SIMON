@@ -70,7 +70,7 @@ export const PaywallScreen = ({ navigation, route }: Props) => {
         <Text style={styles.eyebrow}>MARA PLUS</Text>
         <Text style={styles.title}>Upgrade to deeper coaching</Text>
         <Text style={styles.subtitle}>
-          Unlock memory controls, session reports, and continuity. Advanced Portal integrations are coming next.
+          Unlock memory controls, session reports, and continuity. Advanced Portal adds instruction packs plus connector-based context.
         </Text>
         <View style={styles.planList}>
           <View style={styles.planColumn}>
@@ -92,7 +92,7 @@ export const PaywallScreen = ({ navigation, route }: Props) => {
           </View>
           <View style={styles.planColumn}>
             <Text style={styles.planTitle}>Advanced Portal</Text>
-            <Text style={styles.planMeta}>Rolling out</Text>
+            <Text style={styles.planMeta}>Available now</Text>
             <Text style={styles.planItem}>• Premium instruction packs</Text>
             <Text style={styles.planItem}>• Deeper context connectors</Text>
             <Text style={styles.planItem}>• Long-term pattern intelligence</Text>

@@ -23,7 +23,9 @@ export const InsightsScreen = (_: Props) => {
       return;
     }
 
-    setServerSummary(`Stored ${summary.total ?? 0} events`);
+    setServerSummary(
+      `Stored ${summary.total ?? 0} events • installs ${summary.installs?.total ?? 0} • D7 retained ${summary.installs?.retainedD7 ?? 0}`
+    );
   }, []);
 
   useFocusEffect(
@@ -41,7 +43,9 @@ export const InsightsScreen = (_: Props) => {
     });
     setSyncStatus(`Synced ${result.accepted} events`);
     if (result.summary) {
-      setServerSummary(`Stored ${result.summary.total ?? 0} events`);
+      setServerSummary(
+        `Stored ${result.summary.total ?? 0} events • installs ${result.summary.installs?.total ?? 0} • D7 retained ${result.summary.installs?.retainedD7 ?? 0}`
+      );
     }
     await loadMetrics();
   };
