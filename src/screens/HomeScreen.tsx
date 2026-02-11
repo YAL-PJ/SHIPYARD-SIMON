@@ -103,12 +103,20 @@ export const HomeScreen = ({ navigation }: Props) => {
         <Text style={styles.modeHelperText}>
           {modeHelper.feeling} → Try {modeHelper.coach}
         </Text>
-        <TouchableOpacity
-          style={styles.modeHelperButton}
-          onPress={() => setModeHelperIndex((prev) => prev + 1)}
-        >
-          <Text style={styles.modeHelperButtonText}>See another recommendation</Text>
-        </TouchableOpacity>
+        <View style={styles.modeHelperActions}>
+          <TouchableOpacity
+            style={styles.modeHelperButton}
+            onPress={() => navigation.navigate("Chat", { coach: modeHelper.coach })}
+          >
+            <Text style={styles.modeHelperButtonText}>Start {modeHelper.coach}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.modeHelperButtonSecondary}
+            onPress={() => setModeHelperIndex((prev) => prev + 1)}
+          >
+            <Text style={styles.modeHelperButtonSecondaryText}>See another recommendation</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.intentRow}>
@@ -256,14 +264,31 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
+  modeHelperActions: {
+    flexDirection: "row",
+    gap: 8,
+    flexWrap: "wrap",
+  },
   modeHelperButton: {
+    alignSelf: "flex-start",
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: "#0f172a",
+  },
+  modeHelperButtonText: {
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  modeHelperButtonSecondary: {
     alignSelf: "flex-start",
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 5,
     backgroundColor: "#eff6ff",
   },
-  modeHelperButtonText: {
+  modeHelperButtonSecondaryText: {
     color: "#1e40af",
     fontSize: 12,
     fontWeight: "600",

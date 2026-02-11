@@ -83,6 +83,22 @@ const deriveOutcomeData = (
   };
 };
 
+
+const isOutcomeCompatibleWithCoach = (
+  coach: CoachLabel,
+  outcome: SessionOutcomeData,
+) => {
+  if (coach === "Focus Coach") {
+    return outcome.kind === "focus";
+  }
+
+  if (coach === "Decision Coach") {
+    return outcome.kind === "decision";
+  }
+
+  return outcome.kind === "reflection";
+};
+
 const parseStoredArray = <T>(rawValue: string | null): T[] => {
   if (!rawValue) {
     return [];
@@ -248,8 +264,9 @@ export const saveSessionWithOutcome = async ({
     createdAt: new Date().toISOString(),
     sourceSessionId: sessionId,
     data:
-      outcomeOverride ??
-      deriveOutcomeData(coach, latestUserMessage, latestAssistantMessage),
+      outcomeOverride && isOutcomeCompatibleWithCoach(coach, outcomeOverride)
+        ? outcomeOverride
+        : deriveOutcomeData(coach, latestUserMessage, latestAssistantMessage),
   };
 
   const sessionEntry: SessionHistoryEntry = {

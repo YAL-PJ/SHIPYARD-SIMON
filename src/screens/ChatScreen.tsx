@@ -288,7 +288,7 @@ export const ChatScreen = ({ navigation, route }: Props) => {
 
     setInput("");
     setMessages(nextMessages);
-    setDraftOutcome(deriveDraftOutcome(coach, nextMessages));
+    setDraftOutcome(null);
 
     if (!isSubscribed) {
       const usage = await consumeDailyFreeMessage();
