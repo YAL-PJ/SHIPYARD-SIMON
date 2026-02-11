@@ -467,7 +467,8 @@ createServer(async (request, response) => {
   if (
     request.url !== "/api/coach-reply" &&
     request.url !== "/api/session-outcome" &&
-    request.url !== "/api/session-report"
+    request.url !== "/api/session-report" &&
+    request.url !== "/api/analytics-events"
   ) {
     sendJson(response, 404, { error: "Not found" });
     return;
@@ -475,6 +476,26 @@ createServer(async (request, response) => {
 
   try {
     const rawBody = await readRequestBody(request);
+
+    if (request.url === "/api/analytics-events") {
+      let parsedBody;
+      try {
+        parsedBody = rawBody ? JSON.parse(rawBody) : {};
+      } catch {
+        throw new HttpError(400, "Invalid JSON body");
+      }
+
+      const events = Array.isArray(parsedBody.events) ? parsedBody.events : [];
+      const accepted = events.filter((event) => event && typeof event.name === "string").length;
+
+      if (process.env.NODE_ENV !== "production") {
+        console.log(`[dev] analytics-events accepted=${accepted}`);
+      }
+
+      sendJson(response, 200, { accepted });
+      return;
+    }
+
     const payload = parsePayload(rawBody);
 
     if (request.url === "/api/session-outcome") {

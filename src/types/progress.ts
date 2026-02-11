@@ -38,6 +38,11 @@ export type WeeklySummaryCard = {
   summary: string;
 };
 
+export type SessionReportQualityStatus =
+  | "accepted_ai"
+  | "rejected_ai_fallback"
+  | "fallback_only";
+
 export type SessionReportCard = {
   id: string;
   createdAt: string;
@@ -49,6 +54,8 @@ export type SessionReportCard = {
   nextCheckInPrompt: string;
   confidence: number;
   source: "ai" | "fallback";
+  qualityStatus: SessionReportQualityStatus;
+  usefulnessFeedback?: "useful" | "not_useful";
 };
 
 export type TimelineItem =
