@@ -31,6 +31,8 @@ export const PortalScreen = (_: Props) => {
   const [packs, setPacks] = useState<PackRow[]>([]);
   const [connectors, setConnectors] = useState<ConnectorConfig[]>([]);
   const [syncMessage, setSyncMessage] = useState<string>("");
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncFailed, setLastSyncFailed] = useState(false);
 
   const load = useCallback(async () => {
     const [nextPacks, nextConnectors] = await Promise.all([getInstructionPacks(), getConnectors()]);
@@ -78,19 +80,26 @@ export const PortalScreen = (_: Props) => {
     await load();
   };
 
-  const handleCalendarSync = async () => {
+  const handleCalendarSync = async (retry = false) => {
+    setIsSyncing(true);
+    setLastSyncFailed(false);
+    await trackEvent(ANALYTICS_EVENT.CALENDAR_SYNC_STARTED, { retry });
+
     const result = await syncCalendarConnector();
 
     if (!result.ok) {
+      setLastSyncFailed(true);
       setSyncMessage(result.error);
-      await trackEvent(ANALYTICS_EVENT.CALENDAR_SYNC_FAILED, { reason: result.error });
+      await trackEvent(ANALYTICS_EVENT.CALENDAR_SYNC_FAILED, { reason: result.error, retry });
       await load();
+      setIsSyncing(false);
       return;
     }
 
     setSyncMessage(`Calendar synced at ${new Date(result.syncedAt).toLocaleString()}.`);
     await trackEvent(ANALYTICS_EVENT.CALENDAR_SYNC_SUCCEEDED, { summary: result.summary.slice(0, 140) });
     await load();
+    setIsSyncing(false);
   };
 
   return (
@@ -151,9 +160,14 @@ export const PortalScreen = (_: Props) => {
               }
             />
 
-            <Pressable style={styles.syncButton} onPress={() => void handleCalendarSync()}>
-              <Text style={styles.syncButtonText}>Sync calendar feed</Text>
+            <Pressable style={[styles.syncButton, isSyncing && styles.syncButtonDisabled]} disabled={isSyncing} onPress={() => void handleCalendarSync()}>
+              <Text style={styles.syncButtonText}>{isSyncing ? "Syncing…" : "Sync calendar feed"}</Text>
             </Pressable>
+            {lastSyncFailed ? (
+              <Pressable style={styles.retryButton} disabled={isSyncing} onPress={() => void handleCalendarSync(true)}>
+                <Text style={styles.retryButtonText}>Retry sync</Text>
+              </Pressable>
+            ) : null}
 
             {connector.lastSyncedAt ? (
               <Text style={styles.syncMeta}>Last synced: {new Date(connector.lastSyncedAt).toLocaleString()}</Text>
@@ -228,6 +242,17 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
   },
   syncButtonText: { color: "#ffffff", fontWeight: "700", fontSize: 12 },
+  syncButtonDisabled: { opacity: 0.7 },
+  retryButton: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#cbd5e1",
+    backgroundColor: "#fff",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    alignSelf: "flex-start",
+  },
+  retryButtonText: { color: "#334155", fontWeight: "700", fontSize: 12 },
   consentMeta: { color: "#64748b", fontSize: 12, lineHeight: 16 },
   syncMeta: { color: "#475569", fontSize: 12, lineHeight: 18 },
   errorMeta: { color: "#b91c1c", fontSize: 12, lineHeight: 18 },

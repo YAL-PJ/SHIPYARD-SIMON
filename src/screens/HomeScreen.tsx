@@ -14,6 +14,7 @@ import { RootStackParamList } from "../types/navigation";
 import { CoachLabel } from "../types/coaches";
 import {
   consumePendingReminder,
+  consumeReminderFromNotificationTap,
   getTriggeredReminder,
   markAppOpenedNow,
   markReminderShownNow,
@@ -46,14 +47,18 @@ export const HomeScreen = ({ navigation }: Props) => {
           await trackEvent(ANALYTICS_EVENT.REMINDER_SCHEDULED, {
             reminder_id: scheduled.id,
             target: scheduled.target,
+            delivery: scheduled.delivery,
           });
         }
+
+        await consumeReminderFromNotificationTap();
 
         const triggered = await getTriggeredReminder();
         if (triggered) {
           await trackEvent(ANALYTICS_EVENT.REMINDER_TRIGGERED, {
             reminder_id: triggered.id,
             target: triggered.target,
+            delivery: triggered.delivery,
           });
         }
 
@@ -69,6 +74,7 @@ export const HomeScreen = ({ navigation }: Props) => {
                   reminder_id: pending.id,
                   target: pending.target,
                   has_outcome: Boolean(pending.outcomeId),
+                  delivery: pending.delivery,
                 });
                 if (pending.target === "focus_outcome" && pending.outcomeId) {
                   navigation.navigate("Progress", { reminderOutcomeId: pending.outcomeId });

@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   Alert,
   FlatList,
@@ -23,9 +23,11 @@ import { SessionOutcomeCard, TimelineItem } from "../types/progress";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Progress">;
 
-export const ProgressScreen = ({ navigation }: Props) => {
+export const ProgressScreen = ({ navigation, route }: Props) => {
   const [items, setItems] = useState<TimelineItem[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [highlightedOutcomeId, setHighlightedOutcomeId] = useState<string | null>(null);
+  const listRef = useRef<FlatList<TimelineItem> | null>(null);
 
   const loadItems = useCallback(async () => {
     const timeline = await getTimelineItems();
@@ -37,6 +39,29 @@ export const ProgressScreen = ({ navigation }: Props) => {
       void loadItems();
     }, [loadItems]),
   );
+
+  const reminderOutcomeId = route.params?.reminderOutcomeId;
+
+  const visibleItems = useMemo(() => items, [items]);
+
+  React.useEffect(() => {
+    if (!reminderOutcomeId || visibleItems.length === 0) {
+      return;
+    }
+
+    const index = visibleItems.findIndex(
+      (entry) => entry.type === "outcome" && entry.outcome.id === reminderOutcomeId,
+    );
+
+    if (index === -1) {
+      return;
+    }
+
+    setHighlightedOutcomeId(reminderOutcomeId);
+    setTimeout(() => {
+      listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.2 });
+    }, 150);
+  }, [reminderOutcomeId, visibleItems]);
 
   const onRefresh = async () => {
     setIsRefreshing(true);
@@ -193,10 +218,16 @@ export const ProgressScreen = ({ navigation }: Props) => {
         </View>
       </View>
       <FlatList
-        data={items}
+        ref={listRef}
+        data={visibleItems}
         keyExtractor={(item) => item.id}
         refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />}
         contentContainerStyle={styles.list}
+        onScrollToIndexFailed={(info) => {
+          setTimeout(() => {
+            listRef.current?.scrollToOffset({ offset: Math.max(0, info.averageItemLength * info.index), animated: true });
+          }, 200);
+        }}
         renderItem={({ item }) =>
           item.type === "weekly-summary" ? (
             <View style={[styles.card, styles.weeklyCard]}>
@@ -213,7 +244,7 @@ export const ProgressScreen = ({ navigation }: Props) => {
               <Text style={styles.weeklyText}>{item.report.pattern}</Text>
             </View>
           ) : (
-            <View style={styles.card}>
+            <View style={[styles.card, item.outcome.id === highlightedOutcomeId && styles.highlightedCard]}>
               <Text style={styles.meta}>{item.outcome.coach}</Text>
               {renderOutcome(item.outcome)}
               <View style={styles.rowButtons}>
@@ -271,6 +302,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   weeklyCard: { backgroundColor: "#f1f5f9" },
+  highlightedCard: { borderColor: "#2563eb", backgroundColor: "#eff6ff" },
   reportCard: { backgroundColor: "#eef2ff", borderColor: "#c7d2fe" },
   weeklyTag: { fontSize: 11, letterSpacing: 0.6, fontWeight: "700", color: "#475569" },
   weeklyText: { color: "#334155", lineHeight: 21 },
