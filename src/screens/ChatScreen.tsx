@@ -15,7 +15,9 @@ import { useMonetization } from "../context/MonetizationContext";
 import { COACH_OPENING_MESSAGES } from "../ai/prompts";
 import { ChatMessage } from "../types/chat";
 import { RootStackParamList } from "../types/navigation";
+import { CoachEditConfig } from "../types/editCoach";
 import { getUserContext } from "../storage/preferences";
+import { getCoachEditConfig } from "../storage/editedCoach";
 import {
   consumeDailyFreeMessage,
   isChatPausedForToday,
@@ -63,6 +65,7 @@ export const ChatScreen = ({ navigation, route }: Props) => {
   const [isSending, setIsSending] = useState(false);
   const [hasPendingReply, setHasPendingReply] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [editedCoach, setEditedCoach] = useState<CoachEditConfig | null>(null);
 
   useEffect(() => {
     setMessages([
@@ -74,6 +77,22 @@ export const ChatScreen = ({ navigation, route }: Props) => {
       },
     ]);
   }, [openingMessage]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const loadEditedCoach = async () => {
+        if (!isSubscribed) {
+          setEditedCoach(null);
+          return;
+        }
+
+        const config = await getCoachEditConfig(coach);
+        setEditedCoach(config);
+      };
+
+      void loadEditedCoach();
+    }, [coach, isSubscribed]),
+  );
 
   useFocusEffect(
     React.useCallback(() => {
@@ -111,6 +130,7 @@ export const ChatScreen = ({ navigation, route }: Props) => {
           coach,
           messages: latestMessages,
           userContext,
+          editedCoach,
         });
 
         const assistantContent = reply || ERROR_MESSAGE;
@@ -141,7 +161,7 @@ export const ChatScreen = ({ navigation, route }: Props) => {
     };
 
     void completePendingReply();
-  }, [coach, hasPendingReply, isSending, isSubscribed, messages]);
+  }, [coach, editedCoach, hasPendingReply, isSending, isSubscribed, messages]);
 
   const handleSend = async () => {
     const trimmed = input.trim();
@@ -179,6 +199,7 @@ export const ChatScreen = ({ navigation, route }: Props) => {
         coach,
         messages: nextMessages,
         userContext,
+        editedCoach,
       });
 
       const assistantContent = reply || ERROR_MESSAGE;
@@ -213,7 +234,9 @@ export const ChatScreen = ({ navigation, route }: Props) => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerText}>{coach}</Text>
+        <Text style={styles.headerText}>
+          {editedCoach ? `${coach} (Edited)` : coach}
+        </Text>
       </View>
       <FlatList
         ref={listRef}

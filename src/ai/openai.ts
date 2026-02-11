@@ -1,10 +1,12 @@
 import { ChatMessage } from "../types/chat";
 import { CoachLabel } from "../types/coaches";
+import { CoachEditConfig } from "../types/editCoach";
 
 type OpenAIRequest = {
   coach: CoachLabel;
   messages: ChatMessage[];
   userContext?: string;
+  editedCoach?: CoachEditConfig | null;
 };
 
 type CoachReplyResponse = {
@@ -35,6 +37,7 @@ export const fetchCoachReply = async ({
   coach,
   messages,
   userContext,
+  editedCoach,
 }: OpenAIRequest) => {
   const controller = new AbortController();
   const timeout = setTimeout(() => {
@@ -51,6 +54,7 @@ export const fetchCoachReply = async ({
       body: JSON.stringify({
         coach,
         userContext,
+        editedCoach,
         messages: messages
           .filter((message) => !message.isError)
           .slice(-MAX_HISTORY_MESSAGES),

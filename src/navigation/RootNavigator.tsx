@@ -6,6 +6,7 @@ import { WelcomeScreen } from "../screens/WelcomeScreen";
 import { HomeScreen } from "../screens/HomeScreen";
 import { ChatScreen } from "../screens/ChatScreen";
 import { PaywallScreen } from "../screens/PaywallScreen";
+import { EditCoachScreen } from "../screens/EditCoachScreen";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -30,6 +31,11 @@ export const RootNavigator = () => {
       <Stack.Screen
         name="Paywall"
         component={PaywallScreen}
+        options={{ title: "" }}
+      />
+      <Stack.Screen
+        name="EditCoach"
+        component={EditCoachScreen}
         options={{ title: "" }}
       />
     </Stack.Navigator>
