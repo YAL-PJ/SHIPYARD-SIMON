@@ -9,6 +9,7 @@ import { PaywallScreen } from "../screens/PaywallScreen";
 import { EditCoachScreen } from "../screens/EditCoachScreen";
 import { ProgressScreen } from "../screens/ProgressScreen";
 import { HistoryScreen } from "../screens/HistoryScreen";
+import { ReportsScreen } from "../screens/ReportsScreen";
 import { MemoryScreen } from "../screens/MemoryScreen";
 import { SafetyScreen } from "../screens/SafetyScreen";
 import { InsightsScreen } from "../screens/InsightsScreen";
@@ -51,6 +52,11 @@ export const RootNavigator = () => {
       <Stack.Screen
         name="History"
         component={HistoryScreen}
+        options={{ title: "" }}
+      />
+      <Stack.Screen
+        name="Reports"
+        component={ReportsScreen}
         options={{ title: "" }}
       />
       <Stack.Screen

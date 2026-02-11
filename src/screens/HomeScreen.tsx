@@ -126,6 +126,9 @@ export const HomeScreen = ({ navigation }: Props) => {
         <TouchableOpacity style={styles.timelineButton} onPress={() => navigation.navigate("Safety")}> 
           <Text style={styles.timelineButtonText}>Safety & boundaries</Text>
         </TouchableOpacity>
+        <TouchableOpacity style={styles.timelineButton} onPress={() => navigation.navigate("Reports")}> 
+          <Text style={styles.timelineButtonText}>Session reports</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={styles.timelineButton} onPress={() => navigation.navigate("Insights")}> 
           <Text style={styles.timelineButtonText}>Quality insights</Text>
         </TouchableOpacity>
@@ -142,6 +145,12 @@ export const HomeScreen = ({ navigation }: Props) => {
             onPress={() => navigation.navigate("Chat", { coach: modeHelper.coach })}
           >
             <Text style={styles.modeHelperButtonText}>Start {modeHelper.coach}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.modeHelperButton}
+            onPress={() => navigation.navigate("Chat", { coach: modeHelper.coach, quickMode: true })}
+          >
+            <Text style={styles.modeHelperButtonText}>2-minute mode</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.modeHelperButtonSecondary}

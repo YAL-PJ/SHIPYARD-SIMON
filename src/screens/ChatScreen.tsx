@@ -122,7 +122,7 @@ const MessageContent = ({ message }: MessageContentProps) => {
 };
 
 export const ChatScreen = ({ navigation, route }: Props) => {
-  const { coach } = route.params;
+  const { coach, quickMode = false } = route.params;
   const { isSubscribed } = useMonetization();
   const listRef = useRef<FlatList<ChatMessage>>(null);
   const openingMessage = useMemo(
@@ -141,12 +141,14 @@ export const ChatScreen = ({ navigation, route }: Props) => {
   const [isClosingSession, setIsClosingSession] = useState(false);
   const sessionStartedAtRef = useRef(new Date().toISOString());
   const hasPersistedSessionRef = useRef(false);
+  const hasNavigatedAfterCloseRef = useRef(false);
   const messagesRef = useRef<ChatMessage[]>([]);
 
   useEffect(() => {
     messagesRef.current = [];
     sessionStartedAtRef.current = new Date().toISOString();
     hasPersistedSessionRef.current = false;
+    hasNavigatedAfterCloseRef.current = false;
     setSessionPhase("start");
     setDraftOutcome(null);
     setMessages([
@@ -372,26 +374,53 @@ export const ChatScreen = ({ navigation, route }: Props) => {
 
   const isCrisisSignal = /suicid|self-harm|harm myself|kill myself|panic attack|unsafe/i.test(messages.map((m) => m.content).join(" "));
 
-  const handleCloseSession = async () => {
+  const closeSessionIfReady = async (source: "auto" | "manual") => {
     const conversationalMessages = messagesRef.current.filter((m) => !m.isOpening && !m.isError);
 
-    if (conversationalMessages.length < 2) {
-      await trackEvent("session_close_blocked", { coach, reason: "insufficient_conversation" });
-      return;
+    if (conversationalMessages.length < (quickMode ? 1 : 2)) {
+      await trackEvent("session_close_blocked", {
+        coach,
+        reason: "insufficient_conversation",
+        quick_mode: quickMode,
+      });
+      return false;
     }
 
     if (!draftOutcome) {
       await trackEvent("session_close_blocked", { coach, reason: "missing_outcome" });
-      return;
+      return false;
     }
 
     setIsClosingSession(true);
     await persistSession(messagesRef.current);
-    await trackEvent("session_closed", { coach, outcome_kind: draftOutcome.kind });
+    await trackEvent("session_closed", {
+      coach,
+      outcome_kind: draftOutcome.kind,
+      source,
+      quick_mode: quickMode,
+    });
     setIsClosingSession(false);
-    navigation.navigate("Progress");
+
+    if (!hasNavigatedAfterCloseRef.current) {
+      hasNavigatedAfterCloseRef.current = true;
+      navigation.navigate("Progress");
+    }
+
+    return true;
   };
 
+
+  useEffect(() => {
+    if (!draftOutcome || isSending || hasPendingReply || isClosingSession) {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      void closeSessionIfReady("auto");
+    }, 1100);
+
+    return () => clearTimeout(timeout);
+  }, [draftOutcome, hasPendingReply, isClosingSession, isSending]);
   const isSendDisabled =
     isSending || isPaused || input.trim().length === 0 || hasPendingReply;
 
@@ -401,13 +430,15 @@ export const ChatScreen = ({ navigation, route }: Props) => {
       ? "Start with one concrete situation."
       : sessionPhase === "clarify"
         ? "Stay with one thread until it becomes clear."
-        : "Capture the outcome, then close the session.";
+         : quickMode
+        ? "2-minute mode: keep it short, then let the outcome close the session automatically."
+        : "Outcome detected. We will auto-close this session in a moment.";
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <View>
-          <Text style={styles.eyebrow}>COACHING SESSION</Text>
+          <Text style={styles.eyebrow}>{quickMode ? "2-MINUTE SESSION" : "COACHING SESSION"}</Text>
           <Text style={styles.headerText}>
             {editedCoach ? `${coach} • Edited` : coach}
           </Text>
@@ -463,16 +494,9 @@ export const ChatScreen = ({ navigation, route }: Props) => {
               <Text style={styles.outcomeLine}>Question to Carry: {draftOutcome.questionToCarry}</Text>
             </>
           ) : null}
-          <TouchableOpacity
-            accessibilityRole="button"
-            style={styles.closeSessionButton}
-            onPress={handleCloseSession}
-            disabled={isClosingSession}
-          >
-            <Text style={styles.closeSessionButtonText}>
-              {isClosingSession ? "Closing..." : "Close Session"}
-            </Text>
-          </TouchableOpacity>
+          <Text style={styles.autoCloseText}>
+            {isClosingSession ? "Closing session…" : "Session will close automatically."}
+          </Text>
         </View>
       ) : null}
 {isCrisisSignal ? (
@@ -641,18 +665,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
-  closeSessionButton: {
-    marginTop: 4,
-    alignSelf: "flex-start",
-    borderRadius: 10,
-    backgroundColor: "#0f172a",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  closeSessionButtonText: {
-    color: "#ffffff",
-    fontSize: 13,
-    fontWeight: "600",
+  autoCloseText: {
+    color: "#475569",
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 2,
   },
   crisisCard: {
     borderRadius: 12,
