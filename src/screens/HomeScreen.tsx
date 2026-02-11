@@ -1,5 +1,13 @@
-import React from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useState } from "react";
+import {
+  Alert,
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 
 import { useMonetization } from "../context/MonetizationContext";
@@ -20,14 +28,32 @@ const COACHES: CoachOption[] = [
 
 export const HomeScreen = ({ navigation }: Props) => {
   const { isSubscribed } = useMonetization();
+  const [menuCoach, setMenuCoach] = useState<CoachLabel | null>(null);
 
-  const handleEditCoach = (coach: CoachLabel) => {
+  const closeMenu = () => setMenuCoach(null);
+
+  const openEditCoachFlow = (coach: CoachLabel) => {
     if (!isSubscribed) {
-      navigation.navigate("Paywall", { coach, source: "edit" });
+      Alert.alert(
+        "Locked for free users",
+        "Editing coaches is a Pro feature. Register to unlock coach personalization.",
+        [
+          { text: "Not now", style: "cancel" },
+          {
+            text: "Register",
+            onPress: () => navigation.navigate("Paywall", { coach, source: "edit" }),
+          },
+        ]
+      );
       return;
     }
 
     navigation.navigate("EditCoach", { coach });
+  };
+
+  const handleEditCoach = (coach: CoachLabel) => {
+    closeMenu();
+    openEditCoachFlow(coach);
   };
 
   return (
@@ -36,22 +62,45 @@ export const HomeScreen = ({ navigation }: Props) => {
       <View style={styles.cardList}>
         {COACHES.map((coach) => (
           <View key={coach.label} style={styles.card}>
-            <TouchableOpacity
+            <Pressable
               accessibilityRole="button"
               onPress={() => navigation.navigate("Chat", { coach: coach.label })}
+              onLongPress={() => setMenuCoach(coach.label)}
+              style={styles.cardMainButton}
             >
               <Text style={styles.cardText}>{coach.label}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              accessibilityRole="button"
-              style={styles.editButton}
-              onPress={() => handleEditCoach(coach.label)}
-            >
-              <Text style={styles.editButtonText}>Edit Coach</Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel={`More options for ${coach.label}`}
+                style={styles.moreButton}
+                onPress={() => setMenuCoach(coach.label)}
+              >
+                <Text style={styles.moreButtonText}>•••</Text>
+              </TouchableOpacity>
+            </Pressable>
           </View>
         ))}
       </View>
+
+      <Modal transparent visible={menuCoach !== null} animationType="fade" onRequestClose={closeMenu}>
+        <Pressable style={styles.overlay} onPress={closeMenu}>
+          <View style={styles.menuCard}>
+            <Text style={styles.menuTitle}>{menuCoach}</Text>
+            <TouchableOpacity
+              accessibilityRole="button"
+              style={styles.menuAction}
+              onPress={() => menuCoach && handleEditCoach(menuCoach)}
+            >
+              <Text style={styles.menuActionText}>
+                {isSubscribed ? "Edit Coach" : "🔒 Edit Coach (Register required)"}
+              </Text>
+            </TouchableOpacity>
+            {!isSubscribed ? (
+              <Text style={styles.menuHint}>This action is locked for free users.</Text>
+            ) : null}
+          </View>
+        </Pressable>
+      </Modal>
     </View>
   );
 };
@@ -79,7 +128,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 18,
     backgroundColor: "#fafafa",
-    gap: 14,
+  },
+  cardMainButton: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 12,
   },
   cardText: {
     fontSize: 18,
@@ -87,19 +141,56 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     color: "#111827",
   },
-  editButton: {
+  moreButton: {
     alignSelf: "flex-start",
     borderWidth: 1,
     borderColor: "#d1d5db",
     borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     backgroundColor: "#fff",
   },
-  editButtonText: {
+  moreButtonText: {
     color: "#374151",
+    fontSize: 18,
+    lineHeight: 20,
+    fontWeight: "500",
+  },
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(17, 24, 39, 0.35)",
+    justifyContent: "flex-end",
+    padding: 20,
+  },
+  menuCard: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 16,
+    gap: 14,
+  },
+  menuTitle: {
+    fontSize: 17,
+    lineHeight: 22,
+    color: "#111827",
+    fontWeight: "600",
+  },
+  menuAction: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    backgroundColor: "#f9fafb",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  menuActionText: {
+    color: "#1f2937",
     fontSize: 15,
     lineHeight: 20,
     fontWeight: "500",
+  },
+  menuHint: {
+    color: "#6b7280",
+    fontSize: 14,
+    lineHeight: 19,
   },
 });
