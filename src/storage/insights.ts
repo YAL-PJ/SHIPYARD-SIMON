@@ -1,4 +1,5 @@
 import { AnalyticsEvent, getTrackedEvents } from "./analytics";
+import { ANALYTICS_EVENT } from "../types/analytics";
 
 export type EventMetric = {
   label: string;
@@ -21,8 +22,8 @@ const countByPayloadField = (
 export const getOutcomeQualityMetrics = async () => {
   const events = await getTrackedEvents();
 
-  const sessionSaved = countByName(events, "session_saved");
-  const extractionEvents = events.filter((entry) => entry.name === "outcome_extraction_result");
+  const sessionSaved = countByName(events, ANALYTICS_EVENT.SESSION_SAVED);
+  const extractionEvents = events.filter((entry) => entry.name === ANALYTICS_EVENT.OUTCOME_EXTRACTION_RESULT);
   const fallbackCount = extractionEvents.filter(
     (entry) => entry.payload?.used_fallback_outcome === true,
   ).length;
@@ -37,7 +38,7 @@ export const getOutcomeQualityMetrics = async () => {
       label: "Reports accepted (AI)",
       value: countByPayloadField(
         events,
-        "session_report_saved",
+        ANALYTICS_EVENT.SESSION_REPORT_SAVED,
         "report_quality_status",
         "accepted_ai",
       ),
@@ -46,28 +47,28 @@ export const getOutcomeQualityMetrics = async () => {
       label: "Reports rejected to fallback",
       value: countByPayloadField(
         events,
-        "session_report_saved",
+        ANALYTICS_EVENT.SESSION_REPORT_SAVED,
         "report_quality_status",
         "rejected_ai_fallback",
       ),
     },
     {
       label: "Report feedback: useful",
-      value: countByPayloadField(events, "session_report_feedback", "feedback", "useful"),
+      value: countByPayloadField(events, ANALYTICS_EVENT.SESSION_REPORT_FEEDBACK, "feedback", "useful"),
     },
     {
       label: "Report feedback: not useful",
       value: countByPayloadField(
         events,
-        "session_report_feedback",
+        ANALYTICS_EVENT.SESSION_REPORT_FEEDBACK,
         "feedback",
         "not_useful",
       ),
     },
-    { label: "Outcome edits", value: countByName(events, "outcome_updated") },
-    { label: "Focus completed", value: countByName(events, "outcome_focus_completed") },
-    { label: "Outcomes archived", value: countByName(events, "outcome_archived") },
-    { label: "Outcomes deleted", value: countByName(events, "outcome_deleted") },
+    { label: "Outcome edits", value: countByName(events, ANALYTICS_EVENT.OUTCOME_UPDATED) },
+    { label: "Focus completed", value: countByName(events, ANALYTICS_EVENT.OUTCOME_FOCUS_COMPLETED) },
+    { label: "Outcomes archived", value: countByName(events, ANALYTICS_EVENT.OUTCOME_ARCHIVED) },
+    { label: "Outcomes deleted", value: countByName(events, ANALYTICS_EVENT.OUTCOME_DELETED) },
   ];
 
   return metrics;

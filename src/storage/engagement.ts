@@ -5,21 +5,47 @@ import { getOutcomeCards } from "./progress";
 
 const LAST_OPENED_KEY = "shipyard.engagement.lastOpenedAt";
 const LAST_REMINDER_KEY = "shipyard.engagement.lastReminderAt";
+const PENDING_REMINDER_KEY = "shipyard.engagement.pendingReminder";
+const SCHEDULED_REMINDER_KEY = "shipyard.engagement.scheduledReminder";
 const MS_IN_DAY = 24 * 60 * 60 * 1000;
 
+export type ReminderTarget = "focus_outcome" | "focus_checkin";
+
 export type GentleReminder = {
+  id: string;
   message: string;
   coach: CoachLabel;
+  target: ReminderTarget;
+  outcomeId?: string;
+  scheduledFor: string;
+};
+
+const parseReminder = (value: string | null): GentleReminder | null => {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(value) as GentleReminder;
+    if (!parsed?.id || !parsed?.coach || !parsed?.scheduledFor) {
+      return null;
+    }
+
+    return parsed;
+  } catch {
+    return null;
+  }
 };
 
 export const markAppOpenedNow = async () => {
   await AsyncStorage.setItem(LAST_OPENED_KEY, new Date().toISOString());
 };
 
-export const maybeGetGentleReminder = async () => {
-  const [lastOpenedRaw, lastReminderRaw, outcomes] = await Promise.all([
+export const maybeScheduleGentleReminder = async () => {
+  const [lastOpenedRaw, lastReminderRaw, scheduledRaw, outcomes] = await Promise.all([
     AsyncStorage.getItem(LAST_OPENED_KEY),
     AsyncStorage.getItem(LAST_REMINDER_KEY),
+    AsyncStorage.getItem(SCHEDULED_REMINDER_KEY),
     getOutcomeCards(),
   ]);
 
@@ -30,6 +56,7 @@ export const maybeGetGentleReminder = async () => {
   const now = Date.now();
   const lastOpened = lastOpenedRaw ? +new Date(lastOpenedRaw) : 0;
   const lastReminder = lastReminderRaw ? +new Date(lastReminderRaw) : 0;
+  const scheduled = parseReminder(scheduledRaw);
 
   if (now - lastOpened < 7 * MS_IN_DAY) {
     return null;
@@ -39,29 +66,60 @@ export const maybeGetGentleReminder = async () => {
     return null;
   }
 
-  const recentOutcome = outcomes[0];
-  if (!recentOutcome) {
+  if (scheduled && +new Date(scheduled.scheduledFor) > now) {
+    return scheduled;
+  }
+
+  const unresolvedFocus = outcomes.find(
+    (entry) => entry.data.kind === "focus" && !entry.data.isCompleted && !entry.archivedAt,
+  );
+  const latest = outcomes[0];
+
+  const message = unresolvedFocus
+    ? "You made progress on a focus priority earlier. If it helps, we can continue from that point."
+    : latest?.data.kind === "decision"
+      ? "You made an important decision recently. We can do a brief, calm check-in when you're ready."
+      : "You captured useful progress recently. A short focus check-in can help keep continuity.";
+
+  const reminder: GentleReminder = {
+    id: `reminder-${Date.now()}`,
+    message,
+    coach: "Focus Coach",
+    target: unresolvedFocus ? "focus_outcome" : "focus_checkin",
+    outcomeId: unresolvedFocus?.id,
+    scheduledFor: new Date(now + 5 * 60 * 1000).toISOString(),
+  };
+
+  await AsyncStorage.setItem(SCHEDULED_REMINDER_KEY, JSON.stringify(reminder));
+  return reminder;
+};
+
+export const getTriggeredReminder = async () => {
+  const scheduled = parseReminder(await AsyncStorage.getItem(SCHEDULED_REMINDER_KEY));
+  if (!scheduled) {
     return null;
   }
 
-  if (recentOutcome.data.kind === "decision") {
-    return {
-      message: "You made a decision recently. Want to revisit it?",
-      coach: "Decision Coach" as CoachLabel,
-    } satisfies GentleReminder;
+  if (+new Date(scheduled.scheduledFor) > Date.now()) {
+    return null;
   }
 
-  if (recentOutcome.data.kind === "focus") {
-    return {
-      message: "You paused after choosing one priority. Want to check in?",
-      coach: "Focus Coach" as CoachLabel,
-    } satisfies GentleReminder;
+  await AsyncStorage.multiSet([
+    [PENDING_REMINDER_KEY, JSON.stringify(scheduled)],
+    [SCHEDULED_REMINDER_KEY, ""],
+  ]);
+
+  return scheduled;
+};
+
+export const consumePendingReminder = async () => {
+  const pending = parseReminder(await AsyncStorage.getItem(PENDING_REMINDER_KEY));
+  if (!pending) {
+    return null;
   }
 
-  return {
-    message: "You captured an insight recently. Want to check in?",
-    coach: "Reflection Coach" as CoachLabel,
-  } satisfies GentleReminder;
+  await AsyncStorage.removeItem(PENDING_REMINDER_KEY);
+  return pending;
 };
 
 export const markReminderShownNow = async () => {

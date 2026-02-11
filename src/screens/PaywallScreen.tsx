@@ -92,10 +92,10 @@ export const PaywallScreen = ({ navigation, route }: Props) => {
           </View>
           <View style={styles.planColumn}>
             <Text style={styles.planTitle}>Advanced Portal</Text>
-            <Text style={styles.planMeta}>Available now</Text>
+            <Text style={styles.planMeta}>Rolling out</Text>
             <Text style={styles.planItem}>• Premium instruction packs</Text>
-            <Text style={styles.planItem}>• Deeper context connectors</Text>
-            <Text style={styles.planItem}>• Long-term pattern intelligence</Text>
+            <Text style={styles.planItem}>• Calendar connector with sync</Text>
+            <Text style={styles.planItem}>• Deeper long-term pattern intelligence</Text>
           </View>
         </View>
         <Text style={styles.trustCopy}>Secure purchase handled by Apple / Google.</Text>

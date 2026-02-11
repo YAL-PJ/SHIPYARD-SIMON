@@ -6,7 +6,7 @@ export type RootStackParamList = {
   Chat: { coach: CoachLabel; quickMode?: boolean };
   Paywall: { coach: CoachLabel; source?: "chat" | "edit" | "home" };
   EditCoach: { coach: CoachLabel };
-  Progress: undefined;
+  Progress: { reminderOutcomeId?: string } | undefined;
   History: undefined;
   Reports: undefined;
   Memory: undefined;

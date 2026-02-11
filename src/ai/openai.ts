@@ -30,10 +30,18 @@ type SessionReportResponse = {
 type AnalyticsSummary = {
   total?: number;
   latestEventAt?: string | null;
-  metrics?: Record<string, number>;
+  kpis?: {
+    outcomeSaveRate?: number;
+    focusCompletionRate?: number;
+    reportQualityAcceptanceRate?: number;
+    reportFallbackRate?: number;
+    reportUsefulnessRate?: number;
+  };
+  aggregates?: Record<string, number>;
   installs?: {
     total?: number;
     retainedD7?: number;
+    retainedD30?: number;
   };
 };
 

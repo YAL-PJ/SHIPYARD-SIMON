@@ -28,6 +28,7 @@ import {
 } from "../storage/dailyLimit";
 import { saveSessionWithOutcome } from "../storage/progress";
 import { trackEvent } from "../storage/analytics";
+import { ANALYTICS_EVENT } from "../types/analytics";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Chat">;
 
@@ -248,13 +249,13 @@ export const ChatScreen = ({ navigation, route }: Props) => {
         })
       : null;
 
-    await trackEvent("outcome_extraction_result", {
+    await trackEvent(ANALYTICS_EVENT.OUTCOME_EXTRACTION_RESULT, {
       coach,
       used_ai_outcome: Boolean(aiOutcome),
       used_fallback_outcome: !aiOutcome,
     });
 
-    await trackEvent("session_report_extraction_result", {
+    await trackEvent(ANALYTICS_EVENT.SESSION_REPORT_EXTRACTION_RESULT, {
       coach,
       used_ai_report: Boolean(aiReport),
       report_confidence: aiReport?.confidence ?? null,
@@ -411,7 +412,7 @@ export const ChatScreen = ({ navigation, route }: Props) => {
     const conversationalMessages = messagesRef.current.filter((m) => !m.isOpening && !m.isError);
 
     if (conversationalMessages.length < (quickMode ? 1 : 2)) {
-      await trackEvent("session_close_blocked", {
+      await trackEvent(ANALYTICS_EVENT.SESSION_CLOSE_BLOCKED, {
         coach,
         reason: "insufficient_conversation",
         quick_mode: quickMode,
@@ -420,13 +421,13 @@ export const ChatScreen = ({ navigation, route }: Props) => {
     }
 
     if (!draftOutcome) {
-      await trackEvent("session_close_blocked", { coach, reason: "missing_outcome" });
+      await trackEvent(ANALYTICS_EVENT.SESSION_CLOSE_BLOCKED, { coach, reason: "missing_outcome" });
       return false;
     }
 
     setIsClosingSession(true);
     await persistSession(messagesRef.current);
-    await trackEvent("session_closed", {
+    await trackEvent(ANALYTICS_EVENT.SESSION_CLOSED, {
       coach,
       outcome_kind: draftOutcome.kind,
       source,
