@@ -9,6 +9,7 @@ const OpenAI = require("openai");
 const MODEL = "gpt-4o-mini";
 const TEMPERATURE = 0.2;
 const MAX_TOKENS = 200;
+const OUTCOME_MAX_TOKENS = 180;
 const MAX_HISTORY_MESSAGES = 24;
 const PORT = Number(process.env.PORT || 8787);
 
@@ -211,6 +212,135 @@ const getOpenAIReply = async ({ coach, messages, userContext, editedCoach }) => 
   }
 };
 
+
+const OUTCOME_SYSTEM_PROMPTS = {
+  "Focus Coach": [
+    "Extract a structured Focus outcome from the conversation.",
+    "Return JSON only with keys: kind, priority, firstStep, isCompleted.",
+    'Set kind to "focus" and isCompleted to false.',
+    "priority and firstStep must each be one sentence.",
+  ].join(" "),
+  "Decision Coach": [
+    "Extract a structured Decision outcome from the conversation.",
+    "Return JSON only with keys: kind, decision, tradeoffAccepted.",
+    'Set kind to "decision".',
+    "decision and tradeoffAccepted must each be one sentence.",
+  ].join(" "),
+  "Reflection Coach": [
+    "Extract a structured Reflection outcome from the conversation.",
+    "Return JSON only with keys: kind, insight, questionToCarry.",
+    'Set kind to "reflection".',
+    "insight and questionToCarry must each be one sentence.",
+  ].join(" "),
+};
+
+const normalizeSentence = (value, fallback) => {
+  const normalized = typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
+  if (!normalized) {
+    return fallback;
+  }
+
+  const capped = normalized.slice(0, 200);
+  return /[.!?]$/.test(capped) ? capped : `${capped}.`;
+};
+
+
+const extractLikelyJson = (value) => {
+  const trimmed = typeof value === "string" ? value.trim() : "";
+  if (!trimmed) {
+    return "";
+  }
+
+  const fencedMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (fencedMatch && fencedMatch[1]) {
+    return fencedMatch[1].trim();
+  }
+
+  const firstBrace = trimmed.indexOf("{");
+  const lastBrace = trimmed.lastIndexOf("}");
+  if (firstBrace >= 0 && lastBrace > firstBrace) {
+    return trimmed.slice(firstBrace, lastBrace + 1);
+  }
+
+  return trimmed;
+};
+
+const validateOutcome = (coach, parsedOutcome) => {
+  if (!parsedOutcome || typeof parsedOutcome !== "object") {
+    return null;
+  }
+
+  if (coach === "Focus Coach") {
+    return {
+      kind: "focus",
+      priority: normalizeSentence(parsedOutcome.priority, "Choose one concrete priority for now."),
+      firstStep: normalizeSentence(parsedOutcome.firstStep, "Take one concrete step in the next 20 minutes."),
+      isCompleted: false,
+    };
+  }
+
+  if (coach === "Decision Coach") {
+    return {
+      kind: "decision",
+      decision: normalizeSentence(parsedOutcome.decision, "Commit to one direction."),
+      tradeoffAccepted: normalizeSentence(parsedOutcome.tradeoffAccepted, "Accept one meaningful downside of this choice."),
+    };
+  }
+
+  return {
+    kind: "reflection",
+    insight: normalizeSentence(parsedOutcome.insight, "Name what keeps recurring."),
+    questionToCarry: normalizeSentence(parsedOutcome.questionToCarry, "What deserves a slower look this week?"),
+  };
+};
+
+const getSessionOutcome = async ({ coach, messages }) => {
+  const openai = getOpenAIClient();
+  const conversationText = messages
+    .filter(
+      (message) =>
+        message &&
+        (message.role === "assistant" || message.role === "user") &&
+        typeof message.content === "string" &&
+        message.content.trim().length > 0 &&
+        !message.isError,
+    )
+    .slice(-MAX_HISTORY_MESSAGES)
+    .map((message) => `${message.role === "user" ? "User" : "Coach"}: ${message.content.trim()}`)
+    .join("\n");
+
+  const completionResponse = await openai.chat.completions.create({
+    model: MODEL,
+    temperature: 0,
+    max_tokens: OUTCOME_MAX_TOKENS,
+    messages: [
+      { role: "system", content: OUTCOME_SYSTEM_PROMPTS[coach] },
+      {
+        role: "user",
+        content: `Conversation:
+${conversationText || "(empty)"}
+
+Return JSON only.`,
+      },
+    ],
+  });
+
+  const raw = completionResponse.choices[0]?.message?.content?.trim() || "";
+  if (!raw) {
+    throw new HttpError(502, "Outcome extraction failed");
+  }
+
+  let parsed;
+  const jsonCandidate = extractLikelyJson(raw);
+  try {
+    parsed = JSON.parse(jsonCandidate);
+  } catch {
+    throw new HttpError(502, "Outcome extraction failed");
+  }
+
+  return validateOutcome(coach, parsed);
+};
+
 const parsePayload = (rawBody) => {
   if (!rawBody) {
     throw new HttpError(400, "Missing request body");
@@ -250,7 +380,12 @@ createServer(async (request, response) => {
     return;
   }
 
-  if (request.method !== "POST" || request.url !== "/api/coach-reply") {
+  if (request.method !== "POST") {
+    sendJson(response, 404, { error: "Not found" });
+    return;
+  }
+
+  if (request.url !== "/api/coach-reply" && request.url !== "/api/session-outcome") {
     sendJson(response, 404, { error: "Not found" });
     return;
   }
@@ -258,8 +393,14 @@ createServer(async (request, response) => {
   try {
     const rawBody = await readRequestBody(request);
     const payload = parsePayload(rawBody);
-    const reply = await getOpenAIReply(payload);
 
+    if (request.url === "/api/session-outcome") {
+      const outcome = await getSessionOutcome(payload);
+      sendJson(response, 200, { outcome });
+      return;
+    }
+
+    const reply = await getOpenAIReply(payload);
     sendJson(response, 200, { reply });
   } catch (error) {
     if (error instanceof HttpError) {

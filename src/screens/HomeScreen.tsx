@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Alert,
   Modal,
@@ -21,15 +21,27 @@ type CoachOption = {
   description: string;
 };
 
+type StarterIntent = {
+  label: string;
+  coach: CoachLabel;
+};
+
 const COACHES: CoachOption[] = [
   { label: "Focus Coach", description: "Turn scattered tasks into one clear priority." },
   { label: "Decision Coach", description: "Make confident choices when stakes are high." },
   { label: "Reflection Coach", description: "Process your day and shape the next step." },
 ];
 
+const STARTER_INTENTS: StarterIntent[] = [
+  { label: "I can't prioritize this week", coach: "Focus Coach" },
+  { label: "I'm stuck between two options", coach: "Decision Coach" },
+  { label: "I keep looping on the same thought", coach: "Reflection Coach" },
+];
+
 export const HomeScreen = ({ navigation }: Props) => {
   const { isSubscribed } = useMonetization();
   const [menuCoach, setMenuCoach] = useState<CoachLabel | null>(null);
+  const [modeHelperIndex, setModeHelperIndex] = useState(0);
 
   const closeMenu = () => setMenuCoach(null);
 
@@ -57,6 +69,15 @@ export const HomeScreen = ({ navigation }: Props) => {
     openEditCoachFlow(coach);
   };
 
+  const modeHelper = useMemo(
+    () => [
+      { feeling: "Overwhelmed", coach: "Focus Coach" as CoachLabel },
+      { feeling: "Torn", coach: "Decision Coach" as CoachLabel },
+      { feeling: "Mentally noisy", coach: "Reflection Coach" as CoachLabel },
+    ][modeHelperIndex % 3],
+    [modeHelperIndex],
+  );
+
   return (
     <View style={styles.container}>
       <View style={styles.topSection}>
@@ -75,6 +96,39 @@ export const HomeScreen = ({ navigation }: Props) => {
         >
           <Text style={styles.timelineButtonText}>Open Progress Timeline</Text>
         </TouchableOpacity>
+      </View>
+
+      <View style={styles.modeHelperCard}>
+        <Text style={styles.modeHelperTitle}>What are you experiencing?</Text>
+        <Text style={styles.modeHelperText}>
+          {modeHelper.feeling} → Try {modeHelper.coach}
+        </Text>
+        <View style={styles.modeHelperActions}>
+          <TouchableOpacity
+            style={styles.modeHelperButton}
+            onPress={() => navigation.navigate("Chat", { coach: modeHelper.coach })}
+          >
+            <Text style={styles.modeHelperButtonText}>Start {modeHelper.coach}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.modeHelperButtonSecondary}
+            onPress={() => setModeHelperIndex((prev) => prev + 1)}
+          >
+            <Text style={styles.modeHelperButtonSecondaryText}>See another recommendation</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <View style={styles.intentRow}>
+        {STARTER_INTENTS.map((intent) => (
+          <TouchableOpacity
+            key={intent.label}
+            style={styles.intentChip}
+            onPress={() => navigation.navigate("Chat", { coach: intent.coach })}
+          >
+            <Text style={styles.intentText}>{intent.label}</Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
       {!isSubscribed ? (
@@ -149,7 +203,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#f6f8fb",
   },
   topSection: {
-    marginBottom: 20,
+    marginBottom: 16,
     gap: 8,
   },
   eyebrow: {
@@ -173,7 +227,7 @@ const styles = StyleSheet.create({
     maxWidth: 360,
   },
   quickActions: {
-    marginBottom: 14,
+    marginBottom: 10,
   },
   timelineButton: {
     alignSelf: "flex-start",
@@ -188,6 +242,75 @@ const styles = StyleSheet.create({
     color: "#1e293b",
     fontSize: 14,
     lineHeight: 20,
+    fontWeight: "600",
+  },
+  modeHelperCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#dbe3ef",
+    backgroundColor: "#ffffff",
+    padding: 12,
+    gap: 6,
+    marginBottom: 10,
+  },
+  modeHelperTitle: {
+    color: "#334155",
+    fontSize: 12,
+    letterSpacing: 0.5,
+    fontWeight: "700",
+  },
+  modeHelperText: {
+    color: "#0f172a",
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  modeHelperActions: {
+    flexDirection: "row",
+    gap: 8,
+    flexWrap: "wrap",
+  },
+  modeHelperButton: {
+    alignSelf: "flex-start",
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: "#0f172a",
+  },
+  modeHelperButtonText: {
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  modeHelperButtonSecondary: {
+    alignSelf: "flex-start",
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: "#eff6ff",
+  },
+  modeHelperButtonSecondaryText: {
+    color: "#1e40af",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  intentRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 12,
+  },
+  intentChip: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#dbe3ef",
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    backgroundColor: "#fff",
+  },
+  intentText: {
+    color: "#334155",
+    fontSize: 12,
+    lineHeight: 16,
     fontWeight: "600",
   },
   cardList: {

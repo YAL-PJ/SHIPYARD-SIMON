@@ -10,7 +10,7 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 
-import { fetchCoachReply } from "../ai/openai";
+import { fetchCoachReply, fetchSessionOutcome } from "../ai/openai";
 import { useMonetization } from "../context/MonetizationContext";
 import { COACH_OPENING_MESSAGES } from "../ai/prompts";
 import { ChatMessage } from "../types/chat";
@@ -24,12 +24,15 @@ import {
   isChatPausedForToday,
 } from "../storage/dailyLimit";
 import { saveSessionWithOutcome } from "../storage/progress";
+import { trackEvent } from "../storage/analytics";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Chat">;
 
 type MessageContentProps = {
   message: ChatMessage;
 };
+
+type SessionPhase = "start" | "clarify" | "close";
 
 const ERROR_MESSAGE = "Something went wrong. Try again.";
 
@@ -112,6 +115,8 @@ export const ChatScreen = ({ navigation, route }: Props) => {
   const [isPaused, setIsPaused] = useState(false);
   const [editedCoach, setEditedCoach] = useState<CoachEditConfig | null>(null);
   const [draftOutcome, setDraftOutcome] = useState<SessionOutcomeData | null>(null);
+  const [sessionPhase, setSessionPhase] = useState<SessionPhase>("start");
+  const [isClosingSession, setIsClosingSession] = useState(false);
   const sessionStartedAtRef = useRef(new Date().toISOString());
   const hasPersistedSessionRef = useRef(false);
   const messagesRef = useRef<ChatMessage[]>([]);
@@ -120,6 +125,7 @@ export const ChatScreen = ({ navigation, route }: Props) => {
     messagesRef.current = [];
     sessionStartedAtRef.current = new Date().toISOString();
     hasPersistedSessionRef.current = false;
+    setSessionPhase("start");
     setDraftOutcome(null);
     setMessages([
       {
@@ -131,10 +137,22 @@ export const ChatScreen = ({ navigation, route }: Props) => {
     ]);
   }, [openingMessage]);
 
-
   useEffect(() => {
     messagesRef.current = messages;
-  }, [messages]);
+    const conversationalCount = messages.filter((m) => !m.isOpening && !m.isError).length;
+
+    if (conversationalCount === 0) {
+      setSessionPhase("start");
+      return;
+    }
+
+    if (draftOutcome) {
+      setSessionPhase("close");
+      return;
+    }
+
+    setSessionPhase("clarify");
+  }, [draftOutcome, messages]);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -168,21 +186,37 @@ export const ChatScreen = ({ navigation, route }: Props) => {
     }, [isSubscribed]),
   );
 
+  const persistSession = async (messagesToPersist: ChatMessage[]) => {
+    if (hasPersistedSessionRef.current) {
+      return;
+    }
+
+    hasPersistedSessionRef.current = true;
+
+    const localOutcome = deriveDraftOutcome(coach, messagesToPersist);
+    const aiOutcome = await fetchSessionOutcome({
+      coach,
+      messages: messagesToPersist,
+    });
+
+    await trackEvent("outcome_extraction_result", {
+      coach,
+      used_ai_outcome: Boolean(aiOutcome),
+      used_fallback_outcome: !aiOutcome,
+    });
+
+    await saveSessionWithOutcome({
+      coach,
+      startedAt: sessionStartedAtRef.current,
+      messages: messagesToPersist,
+      outcomeOverride: aiOutcome ?? localOutcome,
+    });
+  };
 
   useFocusEffect(
     React.useCallback(() => {
       return () => {
-        if (hasPersistedSessionRef.current) {
-          return;
-        }
-
-        hasPersistedSessionRef.current = true;
-
-        void saveSessionWithOutcome({
-          coach,
-          startedAt: sessionStartedAtRef.current,
-          messages: messagesRef.current,
-        });
+        void persistSession(messagesRef.current);
       };
     }, [coach]),
   );
@@ -224,15 +258,17 @@ export const ChatScreen = ({ navigation, route }: Props) => {
           return next;
         });
       } catch {
-        setMessages((prev) => [
-          ...prev,
-          {
+        setMessages((prev) => {
+          const assistantMessage: ChatMessage = {
             id: createMessageId(),
             role: "assistant",
             content: ERROR_MESSAGE,
             isError: true,
-          },
-        ]);
+          };
+          const next = [...prev, assistantMessage];
+          setDraftOutcome(deriveDraftOutcome(coach, next));
+          return next;
+        });
       } finally {
         setHasPendingReply(false);
         setIsSending(false);
@@ -259,7 +295,7 @@ export const ChatScreen = ({ navigation, route }: Props) => {
 
     setInput("");
     setMessages(nextMessages);
-    setDraftOutcome(deriveDraftOutcome(coach, nextMessages));
+    setDraftOutcome(null);
 
     if (!isSubscribed) {
       const usage = await consumeDailyFreeMessage();
@@ -312,12 +348,29 @@ export const ChatScreen = ({ navigation, route }: Props) => {
     }
   };
 
+  const handleCloseSession = async () => {
+    if (!draftOutcome) {
+      await trackEvent("session_close_blocked", { coach, reason: "missing_outcome" });
+      return;
+    }
+
+    setIsClosingSession(true);
+    await persistSession(messagesRef.current);
+    await trackEvent("session_closed", { coach, outcome_kind: draftOutcome.kind });
+    setIsClosingSession(false);
+    navigation.navigate("Progress");
+  };
+
   const isSendDisabled =
     isSending || isPaused || input.trim().length === 0 || hasPendingReply;
 
   const helperText = isPaused
     ? "Daily free limit reached. Upgrade to keep the conversation going."
-    : "One session at a time. Aim for one clear takeaway.";
+    : sessionPhase === "start"
+      ? "Start with one concrete situation."
+      : sessionPhase === "clarify"
+        ? "Stay with one thread until it becomes clear."
+        : "Capture the outcome, then close the session.";
 
   return (
     <View style={styles.container}>
@@ -332,6 +385,13 @@ export const ChatScreen = ({ navigation, route }: Props) => {
           <Text style={styles.statusText}>{isSubscribed ? "Pro" : "Free"}</Text>
         </View>
       </View>
+
+      <View style={styles.phaseRow}>
+        <Text style={[styles.phasePill, sessionPhase === "start" && styles.phasePillActive]}>Start</Text>
+        <Text style={[styles.phasePill, sessionPhase === "clarify" && styles.phasePillActive]}>Clarify</Text>
+        <Text style={[styles.phasePill, sessionPhase === "close" && styles.phasePillActive]}>Close</Text>
+      </View>
+
       <FlatList
         ref={listRef}
         style={styles.messages}
@@ -367,6 +427,16 @@ export const ChatScreen = ({ navigation, route }: Props) => {
               <Text style={styles.outcomeLine}>Question to Carry: {draftOutcome.questionToCarry}</Text>
             </>
           ) : null}
+          <TouchableOpacity
+            accessibilityRole="button"
+            style={styles.closeSessionButton}
+            onPress={handleCloseSession}
+            disabled={isClosingSession}
+          >
+            <Text style={styles.closeSessionButtonText}>
+              {isClosingSession ? "Closing..." : "Close Session"}
+            </Text>
+          </TouchableOpacity>
         </View>
       ) : null}
       <Text style={styles.helperText}>{helperText}</Text>
@@ -436,6 +506,24 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#334155",
   },
+  phaseRow: {
+    flexDirection: "row",
+    gap: 6,
+    marginBottom: 10,
+  },
+  phasePill: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: "#e2e8f0",
+    color: "#64748b",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  phasePillActive: {
+    backgroundColor: "#dbeafe",
+    color: "#1e3a8a",
+  },
   messages: {
     flex: 1,
   },
@@ -480,7 +568,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     marginBottom: 8,
-    gap: 4,
+    gap: 6,
   },
   outcomeTitle: {
     color: "#334155",
@@ -492,6 +580,19 @@ const styles = StyleSheet.create({
     color: "#0f172a",
     fontSize: 14,
     lineHeight: 20,
+  },
+  closeSessionButton: {
+    marginTop: 4,
+    alignSelf: "flex-start",
+    borderRadius: 10,
+    backgroundColor: "#0f172a",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  closeSessionButtonText: {
+    color: "#ffffff",
+    fontSize: 13,
+    fontWeight: "600",
   },
   helperText: {
     fontSize: 13,

@@ -1,6 +1,7 @@
 import { ChatMessage } from "../types/chat";
 import { CoachLabel } from "../types/coaches";
 import { CoachEditConfig } from "../types/editCoach";
+import { SessionOutcomeData } from "../types/progress";
 
 type OpenAIRequest = {
   coach: CoachLabel;
@@ -11,6 +12,10 @@ type OpenAIRequest = {
 
 type CoachReplyResponse = {
   reply?: string;
+};
+
+type SessionOutcomeResponse = {
+  outcome?: SessionOutcomeData;
 };
 
 const DEFAULT_API_BASE_URL = "http://localhost:8787";
@@ -33,45 +38,66 @@ const getApiBaseUrl = () => {
   return envValue.replace(/\/+$/, "");
 };
 
-export const fetchCoachReply = async ({
-  coach,
-  messages,
-  userContext,
-  editedCoach,
-}: OpenAIRequest) => {
+const requestJson = async <T>(path: string, payload: unknown) => {
   const controller = new AbortController();
   const timeout = setTimeout(() => {
     controller.abort();
   }, REQUEST_TIMEOUT_MS);
 
   try {
-    const response = await fetch(`${getApiBaseUrl()}/api/coach-reply`, {
+    const response = await fetch(`${getApiBaseUrl()}${path}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       signal: controller.signal,
-      body: JSON.stringify({
-        coach,
-        userContext,
-        editedCoach,
-        messages: messages
-          .filter((message) => !message.isError)
-          .slice(-MAX_HISTORY_MESSAGES),
-      }),
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
-      return "";
+      return null;
     }
 
-    const body = (await response.json()) as CoachReplyResponse;
-    const reply = body.reply?.trim() ?? "";
-
-    return reply;
+    return (await response.json()) as T;
   } catch {
-    return "";
+    return null;
   } finally {
     clearTimeout(timeout);
   }
+};
+
+export const fetchCoachReply = async ({
+  coach,
+  messages,
+  userContext,
+  editedCoach,
+}: OpenAIRequest) => {
+  const body = await requestJson<CoachReplyResponse>("/api/coach-reply", {
+    coach,
+    userContext,
+    editedCoach,
+    messages: messages
+      .filter((message) => !message.isError)
+      .slice(-MAX_HISTORY_MESSAGES),
+  });
+
+  const reply = body?.reply?.trim() ?? "";
+  return reply;
+};
+
+export const fetchSessionOutcome = async ({
+  coach,
+  messages,
+}: {
+  coach: CoachLabel;
+  messages: ChatMessage[];
+}) => {
+  const body = await requestJson<SessionOutcomeResponse>("/api/session-outcome", {
+    coach,
+    messages: messages
+      .filter((message) => !message.isError)
+      .slice(-MAX_HISTORY_MESSAGES),
+  });
+
+  return body?.outcome ?? null;
 };
