@@ -231,12 +231,22 @@ export const ChatScreen = ({ navigation, route }: Props) => {
   const isSendDisabled =
     isSending || isPaused || input.trim().length === 0 || hasPendingReply;
 
+  const helperText = isPaused
+    ? "Daily free limit reached. Upgrade to keep the conversation going."
+    : "Ask one concrete question for the clearest answer.";
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerText}>
-          {editedCoach ? `${coach} (Edited)` : coach}
-        </Text>
+        <View>
+          <Text style={styles.eyebrow}>COACHING SESSION</Text>
+          <Text style={styles.headerText}>
+            {editedCoach ? `${coach} • Edited` : coach}
+          </Text>
+        </View>
+        <View style={styles.statusPill}>
+          <Text style={styles.statusText}>{isSubscribed ? "Pro" : "Free"}</Text>
+        </View>
       </View>
       <FlatList
         ref={listRef}
@@ -252,10 +262,11 @@ export const ChatScreen = ({ navigation, route }: Props) => {
           })
         }
       />
+      <Text style={styles.helperText}>{helperText}</Text>
       <View style={styles.inputRow}>
         <TextInput
           placeholder="Type a message"
-          placeholderTextColor="#9ca3af"
+          placeholderTextColor="#94a3b8"
           style={styles.input}
           value={input}
           onChangeText={setInput}
@@ -280,47 +291,72 @@ export const ChatScreen = ({ navigation, route }: Props) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 24,
-    backgroundColor: "#fff",
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 14,
+    backgroundColor: "#f8fafc",
   },
   header: {
-    paddingVertical: 10,
-    marginBottom: 12,
+    paddingVertical: 8,
+    marginBottom: 10,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  eyebrow: {
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: "700",
+    letterSpacing: 0.8,
+    color: "#64748b",
   },
   headerText: {
-    fontSize: 24,
-    lineHeight: 30,
-    fontWeight: "500",
-    color: "#111827",
+    fontSize: 26,
+    lineHeight: 32,
+    fontWeight: "700",
+    color: "#0f172a",
+    letterSpacing: -0.4,
+  },
+  statusPill: {
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: "#e2e8f0",
+  },
+  statusText: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: "700",
+    color: "#334155",
   },
   messages: {
     flex: 1,
   },
   messageContent: {
     gap: 14,
-    paddingTop: 6,
+    paddingTop: 8,
     paddingBottom: 16,
   },
   messageBubble: {
-    maxWidth: "82%",
+    maxWidth: "84%",
     paddingHorizontal: 14,
     paddingVertical: 11,
     borderRadius: 16,
   },
   assistantBubble: {
     alignSelf: "flex-start",
-    backgroundColor: "#f5f6f8",
+    backgroundColor: "#ffffff",
     borderWidth: 1,
-    borderColor: "#eceff3",
+    borderColor: "#e2e8f0",
   },
   userBubble: {
     alignSelf: "flex-end",
-    backgroundColor: "#eaf3ff",
+    backgroundColor: "#dbeafe",
     borderWidth: 1,
-    borderColor: "#dbeafe",
+    borderColor: "#bfdbfe",
   },
   messageText: {
-    color: "#374151",
+    color: "#334155",
     fontSize: 16,
     lineHeight: 24,
   },
@@ -329,31 +365,36 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
   },
+  helperText: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: "#64748b",
+    marginBottom: 8,
+    marginTop: 4,
+  },
   inputRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    paddingTop: 14,
-    paddingBottom: 2,
+    gap: 10,
   },
   input: {
     flex: 1,
     borderWidth: 1,
-    borderColor: "#d1d5db",
+    borderColor: "#dbe3ef",
     borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 16,
     lineHeight: 22,
-    color: "#111827",
-    backgroundColor: "#fff",
+    color: "#0f172a",
+    backgroundColor: "#ffffff",
   },
   sendButton: {
-    minWidth: 64,
+    minWidth: 72,
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 14,
-    backgroundColor: "#111827",
+    backgroundColor: "#0f172a",
     alignItems: "center",
   },
   sendButtonDisabled: {

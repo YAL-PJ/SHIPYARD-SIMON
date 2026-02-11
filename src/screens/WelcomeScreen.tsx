@@ -109,7 +109,7 @@ export const WelcomeScreen = ({ navigation }: Props) => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#0f172a",
+    backgroundColor: "#f8fafc",
   },
   container: {
     flex: 1,
@@ -126,12 +126,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
-    backgroundColor: "#1e293b",
+    backgroundColor: "#e2e8f0",
     borderWidth: 1,
-    borderColor: "#334155",
+    borderColor: "#cbd5e1",
   },
   badgeText: {
-    color: "#cbd5e1",
+    color: "#334155",
     fontSize: 11,
     lineHeight: 14,
     letterSpacing: 0.7,
@@ -141,11 +141,11 @@ const styles = StyleSheet.create({
     fontSize: 34,
     lineHeight: 40,
     fontWeight: "700",
-    color: "#f8fafc",
+    color: "#0f172a",
     letterSpacing: -0.6,
   },
   subtitle: {
-    color: "#cbd5e1",
+    color: "#475569",
     fontSize: 16,
     lineHeight: 24,
     maxWidth: 350,
@@ -153,13 +153,15 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: "#ffffff",
     borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
     padding: 18,
     gap: 12,
-    shadowColor: "#020617",
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 4,
+    shadowColor: "#0f172a",
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 3,
   },
   label: {
     fontSize: 16,
@@ -169,7 +171,7 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: "#cbd5e1",
+    borderColor: "#dbe3ef",
     borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -202,7 +204,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#2563eb",
+    backgroundColor: "#0f172a",
     minHeight: 52,
   },
   primaryButtonDisabled: {

@@ -18,12 +18,13 @@ type Props = NativeStackScreenProps<RootStackParamList, "Home">;
 
 type CoachOption = {
   label: CoachLabel;
+  description: string;
 };
 
 const COACHES: CoachOption[] = [
-  { label: "Focus Coach" },
-  { label: "Decision Coach" },
-  { label: "Reflection Coach" },
+  { label: "Focus Coach", description: "Turn scattered tasks into one clear priority." },
+  { label: "Decision Coach", description: "Make confident choices when stakes are high." },
+  { label: "Reflection Coach", description: "Process your day and shape the next step." },
 ];
 
 export const HomeScreen = ({ navigation }: Props) => {
@@ -58,7 +59,14 @@ export const HomeScreen = ({ navigation }: Props) => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>What do you need right now?</Text>
+      <View style={styles.topSection}>
+        <Text style={styles.eyebrow}>MARA</Text>
+        <Text style={styles.title}>Choose your coaching mode</Text>
+        <Text style={styles.subtitle}>
+          One focused conversation at a time. Long-press or tap ✦ to customize a coach.
+        </Text>
+      </View>
+
       {!isSubscribed ? (
         <TouchableOpacity
           accessibilityRole="button"
@@ -67,9 +75,10 @@ export const HomeScreen = ({ navigation }: Props) => {
             navigation.navigate("Paywall", { coach: "Focus Coach", source: "home" })
           }
         >
-          <Text style={styles.upgradeButtonText}>Upgrade</Text>
+          <Text style={styles.upgradeButtonText}>Upgrade to Pro</Text>
         </TouchableOpacity>
       ) : null}
+
       <View style={styles.cardList}>
         {COACHES.map((coach) => (
           <View key={coach.label} style={styles.card}>
@@ -79,7 +88,10 @@ export const HomeScreen = ({ navigation }: Props) => {
               onLongPress={() => setMenuCoach(coach.label)}
               style={styles.cardMainButton}
             >
-              <Text style={styles.cardText}>{coach.label}</Text>
+              <View style={styles.cardBody}>
+                <Text style={styles.cardText}>{coach.label}</Text>
+                <Text style={styles.cardDescription}>{coach.description}</Text>
+              </View>
               <TouchableOpacity
                 accessibilityRole="button"
                 accessibilityLabel={`AI edit options for ${coach.label}`}
@@ -119,80 +131,113 @@ export const HomeScreen = ({ navigation }: Props) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 24,
-    backgroundColor: "#fff",
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: 24,
+    backgroundColor: "#f6f8fb",
+  },
+  topSection: {
+    marginBottom: 20,
+    gap: 8,
+  },
+  eyebrow: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: "700",
+    letterSpacing: 1,
+    color: "#64748b",
   },
   title: {
-    fontSize: 30,
+    fontSize: 32,
     lineHeight: 38,
-    fontWeight: "500",
-    color: "#111827",
-    marginBottom: 28,
+    fontWeight: "700",
+    color: "#0f172a",
+    letterSpacing: -0.7,
+  },
+  subtitle: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: "#475569",
+    maxWidth: 360,
   },
   cardList: {
     gap: 14,
   },
   upgradeButton: {
-    position: "absolute",
-    right: 24,
-    bottom: 24,
+    alignSelf: "flex-start",
     borderWidth: 1,
-    borderColor: "#d1d5db",
-    borderRadius: 12,
+    borderColor: "#dbe3ef",
+    borderRadius: 999,
     paddingHorizontal: 14,
-    paddingVertical: 9,
-    backgroundColor: "#fff",
+    paddingVertical: 8,
+    backgroundColor: "#ffffff",
+    marginBottom: 18,
   },
   upgradeButtonText: {
-    color: "#374151",
-    fontSize: 15,
+    color: "#1e293b",
+    fontSize: 14,
     lineHeight: 20,
-    fontWeight: "500",
+    fontWeight: "600",
   },
   card: {
-    borderRadius: 18,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: "#e5e7eb",
-    paddingHorizontal: 20,
-    paddingVertical: 18,
-    backgroundColor: "#fafafa",
+    borderColor: "#e2e8f0",
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    backgroundColor: "#ffffff",
+    shadowColor: "#0f172a",
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 2,
   },
   cardMainButton: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
-    gap: 12,
+    alignItems: "flex-start",
+    gap: 14,
+  },
+  cardBody: {
+    flex: 1,
+    gap: 4,
   },
   cardText: {
-    fontSize: 18,
+    fontSize: 19,
     lineHeight: 24,
-    fontWeight: "500",
-    color: "#111827",
+    fontWeight: "600",
+    color: "#0f172a",
+  },
+  cardDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: "#64748b",
   },
   moreButton: {
-    alignSelf: "flex-start",
     borderWidth: 1,
-    borderColor: "#d1d5db",
+    borderColor: "#dbe3ef",
     borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    backgroundColor: "#f9fafb",
+    width: 34,
+    height: 34,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#f8fafc",
   },
   moreButtonText: {
-    color: "#4b5563",
+    color: "#334155",
     fontSize: 16,
     lineHeight: 18,
-    fontWeight: "600",
+    fontWeight: "700",
   },
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(17, 24, 39, 0.35)",
+    backgroundColor: "rgba(15, 23, 42, 0.35)",
     justifyContent: "flex-end",
     padding: 20,
   },
   menuCard: {
     backgroundColor: "#fff",
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 16,
     gap: 14,
   },
@@ -205,8 +250,8 @@ const styles = StyleSheet.create({
   menuAction: {
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#d1d5db",
-    backgroundColor: "#f9fafb",
+    borderColor: "#d1d9e6",
+    backgroundColor: "#f8fafc",
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
