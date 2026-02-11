@@ -6,6 +6,7 @@ import {
   SessionHistoryEntry,
   SessionOutcomeCard,
   SessionOutcomeData,
+  SessionReportCard,
   TimelineItem,
   WeeklySummaryCard,
 } from "../types/progress";
@@ -15,6 +16,7 @@ import { syncMemoryFromOutcome } from "./memory";
 const OUTCOMES_KEY = "shipyard.outcomes";
 const HISTORY_KEY = "shipyard.sessionHistory";
 const WEEKLY_SUMMARIES_KEY = "shipyard.weeklySummaries";
+const SESSION_REPORTS_KEY = "shipyard.sessionReports";
 
 const createId = (prefix: string) =>
   `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -112,6 +114,64 @@ const parseStoredArray = <T>(rawValue: string | null): T[] => {
   }
 };
 
+
+const toCoachDescriptor = (coach: CoachLabel) => {
+  if (coach === "Focus Coach") {
+    return "focus and execution";
+  }
+
+  if (coach === "Decision Coach") {
+    return "decision clarity";
+  }
+
+  return "reflection and meaning";
+};
+
+const buildSessionReport = (
+  outcome: SessionOutcomeCard,
+  latestUserMessage: string,
+): SessionReportCard => {
+  const summary =
+    outcome.data.kind === "focus"
+      ? `You narrowed the session to one clear priority: ${outcome.data.priority}`
+      : outcome.data.kind === "decision"
+        ? `You committed to a direction: ${outcome.data.decision}`
+        : `You captured a recurring insight: ${outcome.data.insight}`;
+
+  const pattern =
+    outcome.data.kind === "focus"
+      ? `Pattern signal: you are using coaching for ${toCoachDescriptor(outcome.coach)}.`
+      : outcome.data.kind === "decision"
+        ? `Pattern signal: you are naming tradeoffs instead of staying stuck in options.`
+        : `Pattern signal: you are slowing down to notice what repeats beneath the surface.`;
+
+  const nextCheckInPrompt =
+    outcome.data.kind === "focus"
+      ? `When you check in next, report what happened after this first step: ${outcome.data.firstStep}`
+      : outcome.data.kind === "decision"
+        ? `At your next check-in, reflect on how this tradeoff felt in practice: ${outcome.data.tradeoffAccepted}`
+        : `Carry this into your next check-in: ${outcome.data.questionToCarry}`;
+
+  return {
+    id: createId("report"),
+    createdAt: new Date().toISOString(),
+    coach: outcome.coach,
+    sourceSessionId: outcome.sourceSessionId,
+    sourceOutcomeId: outcome.id,
+    summary: safeSentence(summary, `You completed a ${outcome.coach} session.`),
+    pattern: safeSentence(pattern, "Pattern signal captured from this session."),
+    nextCheckInPrompt: safeSentence(
+      nextCheckInPrompt || latestUserMessage,
+      "What feels most important to revisit next?",
+    ),
+  };
+};
+
+export const getSessionReports = async () => {
+  const rawValue = await AsyncStorage.getItem(SESSION_REPORTS_KEY);
+  const entries = parseStoredArray<SessionReportCard>(rawValue);
+  return entries.sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
+};
 const getWeekRange = (dateValue: Date) => {
   const day = dateValue.getDay();
   const distanceFromMonday = (day + 6) % 7;
@@ -202,9 +262,10 @@ export const getSessionHistory = async () => {
 };
 
 export const getTimelineItems = async () => {
-  const [outcomes, summaries] = await Promise.all([
+  const [outcomes, summaries, reports] = await Promise.all([
     getOutcomeCards(),
     AsyncStorage.getItem(WEEKLY_SUMMARIES_KEY),
+    getSessionReports(),
   ]);
 
   const weeklySummaries = parseStoredArray<WeeklySummaryCard>(summaries);
@@ -223,6 +284,12 @@ export const getTimelineItems = async () => {
       type: "weekly-summary" as const,
       createdAt: entry.createdAt,
       summary: entry,
+    })),
+    ...reports.map((entry) => ({
+      id: `report-${entry.id}`,
+      type: "session-report" as const,
+      createdAt: entry.createdAt,
+      report: entry,
     })),
   ];
 
@@ -281,17 +348,21 @@ export const saveSessionWithOutcome = async ({
     })),
   };
 
-  const [existingOutcomes, existingHistory] = await Promise.all([
+  const [existingOutcomes, existingHistory, existingReports] = await Promise.all([
     getOutcomeCards(),
     getSessionHistory(),
+    getSessionReports(),
   ]);
 
   const nextOutcomes = [outcomeCard, ...existingOutcomes];
   const nextHistory = [sessionEntry, ...existingHistory];
+  const reportCard = buildSessionReport(outcomeCard, latestUserMessage);
+  const nextReports = [reportCard, ...existingReports];
 
   await Promise.all([
     AsyncStorage.setItem(OUTCOMES_KEY, JSON.stringify(nextOutcomes)),
     AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(nextHistory)),
+    AsyncStorage.setItem(SESSION_REPORTS_KEY, JSON.stringify(nextReports)),
   ]);
 
   await maybeCreateWeeklySummary(nextOutcomes);
@@ -301,6 +372,12 @@ export const saveSessionWithOutcome = async ({
     coach,
     outcome_kind: outcomeCard.data.kind,
     used_outcome_override: Boolean(outcomeOverride),
+  });
+
+  await trackEvent("session_report_saved", {
+    coach,
+    outcome_kind: outcomeCard.data.kind,
+    report_id: reportCard.id,
   });
 
   return outcomeCard;

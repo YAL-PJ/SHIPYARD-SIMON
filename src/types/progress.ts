@@ -38,6 +38,17 @@ export type WeeklySummaryCard = {
   summary: string;
 };
 
+export type SessionReportCard = {
+  id: string;
+  createdAt: string;
+  coach: TimelineCoachType;
+  sourceSessionId: string;
+  sourceOutcomeId: string;
+  summary: string;
+  pattern: string;
+  nextCheckInPrompt: string;
+};
+
 export type TimelineItem =
   | {
       id: string;
@@ -50,6 +61,12 @@ export type TimelineItem =
       type: "weekly-summary";
       createdAt: string;
       summary: WeeklySummaryCard;
+    }
+  | {
+      id: string;
+      type: "session-report";
+      createdAt: string;
+      report: SessionReportCard;
     };
 
 export type SessionHistoryEntry = {
