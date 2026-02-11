@@ -8,6 +8,16 @@ export type EventMetric = {
 const countByName = (events: AnalyticsEvent[], name: string) =>
   events.filter((event) => event.name === name).length;
 
+const countByPayloadField = (
+  events: AnalyticsEvent[],
+  eventName: string,
+  payloadKey: string,
+  expectedValue: string | boolean,
+) =>
+  events.filter(
+    (event) => event.name === eventName && event.payload?.[payloadKey] === expectedValue,
+  ).length;
+
 export const getOutcomeQualityMetrics = async () => {
   const events = await getTrackedEvents();
 
@@ -22,6 +32,37 @@ export const getOutcomeQualityMetrics = async () => {
     {
       label: "Outcome fallback used",
       value: fallbackCount,
+    },
+    {
+      label: "Reports accepted (AI)",
+      value: countByPayloadField(
+        events,
+        "session_report_saved",
+        "report_quality_status",
+        "accepted_ai",
+      ),
+    },
+    {
+      label: "Reports rejected to fallback",
+      value: countByPayloadField(
+        events,
+        "session_report_saved",
+        "report_quality_status",
+        "rejected_ai_fallback",
+      ),
+    },
+    {
+      label: "Report feedback: useful",
+      value: countByPayloadField(events, "session_report_feedback", "feedback", "useful"),
+    },
+    {
+      label: "Report feedback: not useful",
+      value: countByPayloadField(
+        events,
+        "session_report_feedback",
+        "feedback",
+        "not_useful",
+      ),
     },
     { label: "Outcome edits", value: countByName(events, "outcome_updated") },
     { label: "Focus completed", value: countByName(events, "outcome_focus_completed") },

@@ -7,6 +7,7 @@ import {
   SessionOutcomeCard,
   SessionOutcomeData,
   SessionReportCard,
+  SessionReportQualityStatus,
   TimelineItem,
   WeeklySummaryCard,
 } from "../types/progress";
@@ -130,7 +131,7 @@ const toCoachDescriptor = (coach: CoachLabel) => {
 const buildSessionReport = (
   outcome: SessionOutcomeCard,
   latestUserMessage: string,
-): Omit<SessionReportCard, "id" | "createdAt" | "coach" | "sourceSessionId" | "sourceOutcomeId"> => {
+): Omit<SessionReportCard, "id" | "createdAt" | "coach" | "sourceSessionId" | "sourceOutcomeId" | "qualityStatus" | "usefulnessFeedback"> => {
   const summary =
     outcome.data.kind === "focus"
       ? `You narrowed the session to one clear priority: ${outcome.data.priority}`
@@ -164,9 +165,55 @@ const buildSessionReport = (
   };
 };
 
+const hasDistinctMeaning = (value: string) => {
+  const normalized = value.trim().toLowerCase();
+  return normalized.length >= 24 && !normalized.includes("pattern signal");
+};
+
+const selectReportCandidate = (
+  reportOverride: {
+    summary: string;
+    pattern: string;
+    nextCheckInPrompt: string;
+    confidence: number;
+  } | null | undefined,
+  fallbackReport: ReturnType<typeof buildSessionReport>,
+): {
+  report: ReturnType<typeof buildSessionReport>;
+  qualityStatus: SessionReportQualityStatus;
+} => {
+  if (!reportOverride) {
+    return { report: fallbackReport, qualityStatus: "fallback_only" };
+  }
+
+  const accepted =
+    reportOverride.confidence >= 0.55 &&
+    hasDistinctMeaning(reportOverride.summary) &&
+    hasDistinctMeaning(reportOverride.pattern) &&
+    hasDistinctMeaning(reportOverride.nextCheckInPrompt);
+
+  if (!accepted) {
+    return { report: fallbackReport, qualityStatus: "rejected_ai_fallback" };
+  }
+
+  return {
+    report: {
+      summary: reportOverride.summary,
+      pattern: reportOverride.pattern,
+      nextCheckInPrompt: reportOverride.nextCheckInPrompt,
+      confidence: reportOverride.confidence,
+      source: "ai",
+    },
+    qualityStatus: "accepted_ai",
+  };
+};
+
 export const getSessionReports = async () => {
   const rawValue = await AsyncStorage.getItem(SESSION_REPORTS_KEY);
-  const entries = parseStoredArray<SessionReportCard>(rawValue);
+  const entries = parseStoredArray<SessionReportCard>(rawValue).map((entry) => ({
+    ...entry,
+    qualityStatus: entry.qualityStatus ?? (entry.source === "ai" ? "accepted_ai" : "fallback_only"),
+  }));
   return entries.sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
 };
 const getWeekRange = (dateValue: Date) => {
@@ -361,23 +408,22 @@ export const saveSessionWithOutcome = async ({
   const nextOutcomes = [outcomeCard, ...existingOutcomes];
   const nextHistory = [sessionEntry, ...existingHistory];
   const fallbackReport = buildSessionReport(outcomeCard, latestUserMessage);
+  const reportSelection = selectReportCandidate(reportOverride, fallbackReport);
   const reportCard: SessionReportCard = {
     id: createId("report"),
     createdAt: new Date().toISOString(),
     coach,
     sourceSessionId: sessionId,
     sourceOutcomeId: outcomeCard.id,
-    summary: safeSentence(reportOverride?.summary ?? fallbackReport.summary, fallbackReport.summary),
-    pattern: safeSentence(reportOverride?.pattern ?? fallbackReport.pattern, fallbackReport.pattern),
+    summary: safeSentence(reportSelection.report.summary, fallbackReport.summary),
+    pattern: safeSentence(reportSelection.report.pattern, fallbackReport.pattern),
     nextCheckInPrompt: safeSentence(
-      reportOverride?.nextCheckInPrompt ?? fallbackReport.nextCheckInPrompt,
+      reportSelection.report.nextCheckInPrompt,
       fallbackReport.nextCheckInPrompt,
     ),
-    confidence:
-      typeof reportOverride?.confidence === "number"
-        ? Math.max(0, Math.min(1, Number(reportOverride.confidence.toFixed(2))))
-        : fallbackReport.confidence,
-    source: reportOverride ? "ai" : "fallback",
+    confidence: Math.max(0, Math.min(1, Number(reportSelection.report.confidence.toFixed(2)))),
+    source: reportSelection.report.source,
+    qualityStatus: reportSelection.qualityStatus,
   };
   const nextReports = [reportCard, ...existingReports];
 
@@ -388,7 +434,7 @@ export const saveSessionWithOutcome = async ({
   ]);
 
   await maybeCreateWeeklySummary(nextOutcomes);
-  await syncMemoryFromOutcome(outcomeCard);
+  await syncMemoryFromOutcome(outcomeCard, nextOutcomes);
 
   await trackEvent("session_saved", {
     coach,
@@ -402,6 +448,7 @@ export const saveSessionWithOutcome = async ({
     report_id: reportCard.id,
     report_source: reportCard.source,
     report_confidence: reportCard.confidence,
+    report_quality_status: reportCard.qualityStatus,
   });
 
   return outcomeCard;
@@ -452,4 +499,27 @@ export const deleteOutcomeCard = async (outcomeId: string) => {
     outcome_id: outcomeId,
     outcome_kind: deleted?.data.kind ?? null,
   });
+};
+
+
+export const updateReportUsefulness = async (
+  reportId: string,
+  feedback: "useful" | "not_useful",
+) => {
+  const reports = await getSessionReports();
+  const nextReports = reports.map((entry) =>
+    entry.id === reportId ? { ...entry, usefulnessFeedback: feedback } : entry,
+  );
+
+  await AsyncStorage.setItem(SESSION_REPORTS_KEY, JSON.stringify(nextReports));
+
+  const updated = nextReports.find((entry) => entry.id === reportId);
+  if (updated) {
+    await trackEvent("session_report_feedback", {
+      report_id: reportId,
+      feedback,
+      coach: updated.coach,
+      quality_status: updated.qualityStatus,
+    });
+  }
 };

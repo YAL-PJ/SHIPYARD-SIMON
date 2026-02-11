@@ -127,31 +127,97 @@ const upsertSystemMemory = (
   ];
 };
 
-const buildOutcomeMemories = (outcome: SessionOutcomeCard) => {
+const getStage = (sessionCount: number) => {
+  if (sessionCount >= 9) {
+    return 3;
+  }
+
+  if (sessionCount >= 5) {
+    return 2;
+  }
+
+  return 1;
+};
+
+const buildOutcomeMemories = (
+  outcome: SessionOutcomeCard,
+  sessionCount: number,
+  outcomes: SessionOutcomeCard[],
+) => {
+  const stage = getStage(sessionCount);
+  const memories: Array<{ type: MemoryItemType; label: string }> = [];
+
   if (outcome.data.kind === "focus") {
-    return [
-      { type: "theme" as const, label: `Current priority: ${outcome.data.priority}` },
-      { type: "pattern" as const, label: `Action tendency: ${outcome.data.firstStep}` },
-    ];
+    memories.push({ type: "theme", label: `Current priority: ${outcome.data.priority}` });
+
+    if (stage >= 2) {
+      memories.push({ type: "pattern", label: `Action tendency: ${outcome.data.firstStep}` });
+    }
+
+    if (stage >= 3) {
+      const unresolvedFocus = outcomes.filter(
+        (entry) => entry.data.kind === "focus" && !entry.data.isCompleted,
+      ).length;
+      if (unresolvedFocus >= 2) {
+        memories.push({
+          type: "pattern",
+          label: `Trajectory: you currently have ${unresolvedFocus} unresolved focus commitments.`,
+        });
+      }
+    }
+
+    return memories;
   }
 
   if (outcome.data.kind === "decision") {
-    return [
-      { type: "theme" as const, label: `Decision direction: ${outcome.data.decision}` },
-      {
-        type: "pattern" as const,
+    memories.push({ type: "theme", label: `Decision direction: ${outcome.data.decision}` });
+
+    if (stage >= 2) {
+      memories.push({
+        type: "pattern",
         label: `Accepted tradeoff pattern: ${outcome.data.tradeoffAccepted}`,
-      },
-    ];
+      });
+    }
+
+    if (stage >= 3) {
+      const priorDecisions = outcomes.filter((entry) => entry.data.kind === "decision").length;
+      if (priorDecisions >= 3) {
+        memories.push({
+          type: "pattern",
+          label: "Trajectory: your decisions are becoming more explicit about tradeoffs.",
+        });
+      }
+    }
+
+    return memories;
   }
 
-  return [
-    { type: "theme" as const, label: `Recurring insight: ${outcome.data.insight}` },
-    { type: "value" as const, label: `Question carried forward: ${outcome.data.questionToCarry}` },
-  ];
+  memories.push({ type: "theme", label: `Recurring insight: ${outcome.data.insight}` });
+
+  if (stage >= 2) {
+    memories.push({
+      type: "value",
+      label: `Question carried forward: ${outcome.data.questionToCarry}`,
+    });
+  }
+
+  if (stage >= 3) {
+    const priorReflections = outcomes.filter((entry) => entry.data.kind === "reflection").length;
+    if (priorReflections >= 3) {
+      memories.push({
+        type: "pattern",
+        label: "Trajectory: your reflections are showing stable recurring themes.",
+      });
+    }
+  }
+
+  return memories;
 };
 
-export const syncMemoryFromOutcome = async (outcome: SessionOutcomeCard) => {
+export const syncMemoryFromOutcome = async (
+  outcome: SessionOutcomeCard,
+  outcomes: SessionOutcomeCard[],
+) => {
   const memoryEnabled = await isMemoryEnabled();
   if (!memoryEnabled) {
     return;
@@ -159,7 +225,7 @@ export const syncMemoryFromOutcome = async (outcome: SessionOutcomeCard) => {
 
   const nowIso = new Date().toISOString();
   const existing = await getMemoryItems();
-  const memoryCandidates = buildOutcomeMemories(outcome);
+  const memoryCandidates = buildOutcomeMemories(outcome, outcomes.length, outcomes);
 
   const next = memoryCandidates.reduce<MemoryItem[]>(
     (acc, item) => upsertSystemMemory(acc, item.label, item.type, nowIso),

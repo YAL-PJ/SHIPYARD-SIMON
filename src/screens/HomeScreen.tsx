@@ -110,42 +110,19 @@ export const HomeScreen = ({ navigation }: Props) => {
     <View style={styles.container}>
       <View style={styles.topSection}>
         <Text style={styles.eyebrow}>MARA</Text>
-        <Text style={styles.title}>Choose your coaching mode</Text>
+        <Text style={styles.title}>One calm next step</Text>
         <Text style={styles.subtitle}>
           Move from clarity to action. Every session ends with a saved outcome you can revisit.
         </Text>
       </View>
 
-      <View style={styles.quickActions}>
-        <TouchableOpacity style={styles.timelineButton} onPress={() => navigation.navigate("Progress")}> 
-          <Text style={styles.timelineButtonText}>Open Progress Timeline</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.timelineButton} onPress={() => navigation.navigate("Memory")}> 
-          <Text style={styles.timelineButtonText}>What I&apos;ve learned</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.timelineButton} onPress={() => navigation.navigate("Safety")}> 
-          <Text style={styles.timelineButtonText}>Safety & boundaries</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.timelineButton} onPress={() => navigation.navigate("Reports")}> 
-          <Text style={styles.timelineButtonText}>Session reports</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.timelineButton} onPress={() => navigation.navigate("Insights")}> 
-          <Text style={styles.timelineButtonText}>Quality insights</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.timelineButton}
-          onPress={() => {
-            if (!isSubscribed) {
-              navigation.navigate("Paywall", { coach: "Focus Coach", source: "home" });
-              return;
-            }
-
-            navigation.navigate("Portal");
-          }}
-        >
-          <Text style={styles.timelineButtonText}>Advanced Portal</Text>
-        </TouchableOpacity>
-      </View>
+      <TouchableOpacity
+        style={styles.primaryCta}
+        onPress={() => navigation.navigate("Chat", { coach: modeHelper.coach })}
+      >
+        <Text style={styles.primaryCtaTitle}>Start {modeHelper.coach}</Text>
+        <Text style={styles.primaryCtaSub}>Based on your current state: {modeHelper.feeling}</Text>
+      </TouchableOpacity>
 
       <View style={styles.modeHelperCard}>
         <Text style={styles.modeHelperTitle}>What are you experiencing?</Text>
@@ -155,94 +132,103 @@ export const HomeScreen = ({ navigation }: Props) => {
         <View style={styles.modeHelperActions}>
           <TouchableOpacity
             style={styles.modeHelperButton}
-            onPress={() => navigation.navigate("Chat", { coach: modeHelper.coach })}
-          >
-            <Text style={styles.modeHelperButtonText}>Start {modeHelper.coach}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.modeHelperButton}
             onPress={() => navigation.navigate("Chat", { coach: modeHelper.coach, quickMode: true })}
           >
             <Text style={styles.modeHelperButtonText}>2-minute mode</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={styles.modeHelperButtonSecondary}
-            onPress={() => setModeHelperIndex((prev) => prev + 1)}
+            style={styles.modeHelperButton}
+            onPress={() => setModeHelperIndex((value) => value + 1)}
           >
-            <Text style={styles.modeHelperButtonSecondaryText}>See another recommendation</Text>
+            <Text style={styles.modeHelperButtonText}>See another recommendation</Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      <View style={styles.intentRow}>
-        {STARTER_INTENTS.map((intent) => (
+      <View style={styles.coachGrid}>
+        {COACHES.map((coach) => (
           <TouchableOpacity
-            key={intent.label}
-            style={styles.intentChip}
-            onPress={() => navigation.navigate("Chat", { coach: intent.coach })}
+            key={coach.label}
+            style={styles.coachCard}
+            onPress={() => navigation.navigate("Chat", { coach: coach.label })}
+            onLongPress={() => setMenuCoach(coach.label)}
           >
-            <Text style={styles.intentText}>{intent.label}</Text>
+            <Text style={styles.coachLabel}>{coach.label}</Text>
+            <Text style={styles.coachDescription}>{coach.description}</Text>
+            <Text style={styles.coachHint}>Long press to edit tone and constraints</Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      {!isSubscribed ? (
-        <TouchableOpacity
-          accessibilityRole="button"
-          style={styles.upgradeButton}
-          onPress={() =>
-            navigation.navigate("Paywall", { coach: "Focus Coach", source: "home" })
-          }
-        >
-          <Text style={styles.upgradeButtonText}>Upgrade to Plus</Text>
-        </TouchableOpacity>
-      ) : null}
-
-      <View style={styles.cardList}>
-        {COACHES.map((coach) => (
-          <View key={coach.label} style={styles.card}>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => navigation.navigate("Chat", { coach: coach.label })}
-              onLongPress={() => setMenuCoach(coach.label)}
-              style={styles.cardMainButton}
+      <View style={styles.intentSection}>
+        <Text style={styles.intentTitle}>Starter intents</Text>
+        <View style={styles.intentWrap}>
+          {STARTER_INTENTS.map((intent) => (
+            <TouchableOpacity
+              key={intent.label}
+              style={styles.intentChip}
+              onPress={() => navigation.navigate("Chat", { coach: intent.coach })}
             >
-              <View style={styles.cardBody}>
-                <Text style={styles.cardText}>{coach.label}</Text>
-                <Text style={styles.cardDescription}>{coach.description}</Text>
-              </View>
-              <TouchableOpacity
-                accessibilityRole="button"
-                accessibilityLabel={`AI edit options for ${coach.label}`}
-                style={styles.moreButton}
-                onPress={() => setMenuCoach(coach.label)}
-              >
-                <Text style={styles.moreButtonText}>✦</Text>
-              </TouchableOpacity>
-            </Pressable>
-          </View>
-        ))}
+              <Text style={styles.intentChipText}>{intent.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       </View>
 
-      <Text style={styles.scopeText}>Coaching support only. Not medical, legal, or financial advice.</Text>
+      <View style={styles.secondaryActions}>
+        <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate("Progress")}>
+          <Text style={styles.secondaryButtonText}>Progress timeline</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate("Reports")}>
+          <Text style={styles.secondaryButtonText}>Session reports</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate("Memory")}>
+          <Text style={styles.secondaryButtonText}>What I've learned</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate("Safety")}>
+          <Text style={styles.secondaryButtonText}>Safety & boundaries</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate("Insights")}>
+          <Text style={styles.secondaryButtonText}>Quality insights</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.secondaryButton}
+          onPress={() => {
+            if (!isSubscribed) {
+              navigation.navigate("Paywall", { coach: "Focus Coach", source: "home" });
+              return;
+            }
 
-      <Modal transparent visible={menuCoach !== null} animationType="fade" onRequestClose={closeMenu}>
-        <Pressable style={styles.overlay} onPress={closeMenu}>
-          <View style={styles.menuCard}>
+            navigation.navigate("Portal");
+          }}
+        >
+          <Text style={styles.secondaryButtonText}>Advanced Portal</Text>
+        </TouchableOpacity>
+      </View>
+
+      <Text style={styles.boundaryText}>
+        Coaching support only. Not medical, legal, financial, or crisis care.
+      </Text>
+
+      <Modal
+        transparent
+        visible={Boolean(menuCoach)}
+        animationType="fade"
+        onRequestClose={closeMenu}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={closeMenu}>
+          <Pressable style={styles.menuCard}>
             <Text style={styles.menuTitle}>{menuCoach}</Text>
             <TouchableOpacity
-              accessibilityRole="button"
-              style={styles.menuAction}
+              style={styles.menuItem}
               onPress={() => menuCoach && handleEditCoach(menuCoach)}
             >
-              <Text style={styles.menuActionText}>
-                {isSubscribed ? "Edit Coach" : "🔒 Edit Coach (Upgrade required)"}
-              </Text>
+              <Text style={styles.menuItemText}>Edit coach tone & emphasis</Text>
             </TouchableOpacity>
-            {!isSubscribed ? (
-              <Text style={styles.menuHint}>This action is locked for free users.</Text>
-            ) : null}
-          </View>
+            <TouchableOpacity style={styles.menuItem} onPress={closeMenu}>
+              <Text style={styles.menuItemText}>Cancel</Text>
+            </TouchableOpacity>
+          </Pressable>
         </Pressable>
       </Modal>
     </View>
@@ -252,44 +238,195 @@ export const HomeScreen = ({ navigation }: Props) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 20,
-    paddingBottom: 24,
-    backgroundColor: "#f6f8fb",
+    paddingHorizontal: 20,
+    paddingTop: 22,
+    paddingBottom: 18,
+    backgroundColor: "#f8fafc",
+    gap: 12,
   },
-  topSection: { marginBottom: 16, gap: 8 },
-  eyebrow: { fontSize: 12, lineHeight: 16, fontWeight: "700", letterSpacing: 1, color: "#64748b" },
-  title: { fontSize: 32, lineHeight: 38, fontWeight: "700", color: "#0f172a", letterSpacing: -0.7 },
-  subtitle: { fontSize: 15, lineHeight: 22, color: "#475569", maxWidth: 360 },
-  quickActions: { marginBottom: 10, flexDirection: "row", gap: 8, flexWrap: "wrap" },
-  timelineButton: { borderRadius: 999, borderWidth: 1, borderColor: "#cbd5e1", backgroundColor: "#ffffff", paddingHorizontal: 12, paddingVertical: 8 },
-  timelineButtonText: { color: "#1e293b", fontSize: 13, lineHeight: 18, fontWeight: "600" },
-  modeHelperCard: { borderRadius: 14, borderWidth: 1, borderColor: "#dbe3ef", backgroundColor: "#ffffff", padding: 12, gap: 6, marginBottom: 10 },
-  modeHelperTitle: { color: "#334155", fontSize: 12, letterSpacing: 0.5, fontWeight: "700" },
-  modeHelperText: { color: "#0f172a", fontSize: 14, lineHeight: 20 },
-  modeHelperActions: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
-  modeHelperButton: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5, backgroundColor: "#0f172a" },
-  modeHelperButtonText: { color: "#ffffff", fontSize: 12, fontWeight: "600" },
-  modeHelperButtonSecondary: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5, backgroundColor: "#eff6ff" },
-  modeHelperButtonSecondaryText: { color: "#1e40af", fontSize: 12, fontWeight: "600" },
-  intentRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 12 },
-  intentChip: { borderRadius: 999, borderWidth: 1, borderColor: "#dbe3ef", paddingHorizontal: 11, paddingVertical: 7, backgroundColor: "#fff" },
-  intentText: { color: "#334155", fontSize: 12, lineHeight: 16, fontWeight: "600" },
-  cardList: { gap: 14 },
-  upgradeButton: { alignSelf: "flex-start", borderWidth: 1, borderColor: "#dbe3ef", borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8, backgroundColor: "#ffffff", marginBottom: 18 },
-  upgradeButtonText: { color: "#1e293b", fontSize: 14, lineHeight: 20, fontWeight: "600" },
-  card: { borderRadius: 20, borderWidth: 1, borderColor: "#e2e8f0", paddingHorizontal: 16, paddingVertical: 16, backgroundColor: "#ffffff" },
-  cardMainButton: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 14 },
-  cardBody: { flex: 1, gap: 4 },
-  cardText: { fontSize: 19, lineHeight: 24, fontWeight: "600", color: "#0f172a" },
-  cardDescription: { fontSize: 14, lineHeight: 20, color: "#64748b" },
-  moreButton: { borderWidth: 1, borderColor: "#dbe3ef", borderRadius: 999, width: 34, height: 34, alignItems: "center", justifyContent: "center", backgroundColor: "#f8fafc" },
-  moreButtonText: { color: "#334155", fontSize: 16, lineHeight: 18, fontWeight: "700" },
-  overlay: { flex: 1, backgroundColor: "rgba(15, 23, 42, 0.35)", justifyContent: "flex-end", padding: 20 },
-  menuCard: { backgroundColor: "#fff", borderRadius: 18, padding: 16, gap: 14 },
-  menuTitle: { fontSize: 17, lineHeight: 22, color: "#111827", fontWeight: "600" },
-  menuAction: { borderRadius: 12, borderWidth: 1, borderColor: "#d1d9e6", backgroundColor: "#f8fafc", paddingHorizontal: 12, paddingVertical: 10 },
-  menuActionText: { color: "#1f2937", fontSize: 15, lineHeight: 20, fontWeight: "500" },
-  menuHint: { color: "#6b7280", fontSize: 14, lineHeight: 19 },
-  scopeText: { marginTop: "auto", color: "#64748b", fontSize: 12, lineHeight: 18, paddingTop: 14 },
+  topSection: {
+    gap: 6,
+  },
+  eyebrow: {
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: "700",
+    letterSpacing: 0.8,
+    color: "#64748b",
+  },
+  title: {
+    fontSize: 32,
+    lineHeight: 38,
+    fontWeight: "700",
+    letterSpacing: -0.6,
+    color: "#0f172a",
+  },
+  subtitle: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: "#475569",
+  },
+  primaryCta: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#bfdbfe",
+    backgroundColor: "#dbeafe",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 3,
+  },
+  primaryCtaTitle: { color: "#1e3a8a", fontWeight: "700", fontSize: 16 },
+  primaryCtaSub: { color: "#1d4ed8", fontSize: 12 },
+  modeHelperCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#dbe3ef",
+    backgroundColor: "#fff",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  modeHelperTitle: {
+    color: "#334155",
+    fontWeight: "700",
+    letterSpacing: 0.4,
+    fontSize: 12,
+  },
+  modeHelperText: {
+    color: "#0f172a",
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  modeHelperActions: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  modeHelperButton: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#dbe3ef",
+    backgroundColor: "#f8fafc",
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  modeHelperButtonText: {
+    color: "#334155",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  coachGrid: {
+    gap: 8,
+  },
+  coachCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#dbe3ef",
+    backgroundColor: "#fff",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 6,
+  },
+  coachLabel: {
+    fontSize: 18,
+    lineHeight: 24,
+    fontWeight: "700",
+    color: "#0f172a",
+  },
+  coachDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: "#475569",
+  },
+  coachHint: {
+    fontSize: 12,
+    lineHeight: 16,
+    color: "#94a3b8",
+  },
+  intentSection: {
+    gap: 8,
+  },
+  intentTitle: {
+    color: "#334155",
+    fontSize: 12,
+    letterSpacing: 0.4,
+    fontWeight: "700",
+  },
+  intentWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  intentChip: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#dbe3ef",
+    backgroundColor: "#fff",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  intentChipText: {
+    color: "#334155",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  secondaryActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  secondaryButton: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    backgroundColor: "#fff",
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  secondaryButtonText: {
+    color: "#334155",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  boundaryText: {
+    marginTop: "auto",
+    fontSize: 12,
+    lineHeight: 17,
+    color: "#64748b",
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(15, 23, 42, 0.22)",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 24,
+  },
+  menuCard: {
+    width: "100%",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#dbe3ef",
+    backgroundColor: "#fff",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 10,
+  },
+  menuTitle: {
+    color: "#0f172a",
+    fontSize: 18,
+    lineHeight: 24,
+    fontWeight: "700",
+  },
+  menuItem: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#dbe3ef",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: "#f8fafc",
+  },
+  menuItemText: {
+    color: "#334155",
+    fontSize: 14,
+    fontWeight: "600",
+  },
 });

@@ -27,6 +27,10 @@ type SessionReportResponse = {
   };
 };
 
+type AnalyticsSyncResponse = {
+  accepted?: number;
+};
+
 const DEFAULT_API_BASE_URL = "http://localhost:8787";
 const MAX_HISTORY_MESSAGES = 24;
 const REQUEST_TIMEOUT_MS = 30000;
@@ -136,4 +140,15 @@ export const fetchSessionReport = async ({
     nextCheckInPrompt: body.report.nextCheckInPrompt?.trim() ?? "",
     confidence: typeof body.report.confidence === "number" ? body.report.confidence : 0.5,
   };
+};
+
+
+export const syncAnalyticsEvents = async (events: Array<{
+  id: string;
+  name: string;
+  createdAt: string;
+  payload?: Record<string, string | number | boolean | null | undefined>;
+}>) => {
+  const body = await requestJson<AnalyticsSyncResponse>("/api/analytics-events", { events });
+  return body?.accepted ?? 0;
 };
