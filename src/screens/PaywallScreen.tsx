@@ -67,9 +67,10 @@ export const PaywallScreen = ({ navigation, route }: Props) => {
   return (
     <View style={styles.container}>
       <View style={styles.content}>
+        <Text style={styles.eyebrow}>MARA PRO</Text>
         <Text style={styles.title}>Choose your coaching plan</Text>
         <Text style={styles.subtitle}>
-          Free gives you daily guided chats. Pro unlocks unlimited coaching and personalization.
+          Free gives you daily guided chats. Pro unlocks unlimited coaching and deep personalization.
         </Text>
         <View style={styles.planRow}>
           <View style={styles.planColumn}>
@@ -78,7 +79,7 @@ export const PaywallScreen = ({ navigation, route }: Props) => {
             <Text style={styles.planItem}>• Daily chat limit</Text>
             <Text style={styles.planItem}>• Temporary context</Text>
           </View>
-          <View style={styles.planColumn}>
+          <View style={[styles.planColumn, styles.planColumnFeatured]}>
             <Text style={styles.planTitle}>Pro</Text>
             <Text style={styles.planItem}>• Unlimited chats</Text>
             <Text style={styles.planItem}>• Edit your coaches</Text>
@@ -116,27 +117,36 @@ export const PaywallScreen = ({ navigation, route }: Props) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 24,
+    paddingHorizontal: 24,
+    paddingTop: 36,
+    paddingBottom: 22,
     justifyContent: "space-between",
-    backgroundColor: "#fff",
+    backgroundColor: "#f8fafc",
   },
   content: {
-    paddingTop: 44,
     gap: 10,
     alignItems: "center",
   },
+  eyebrow: {
+    fontSize: 12,
+    lineHeight: 16,
+    letterSpacing: 1,
+    fontWeight: "700",
+    color: "#64748b",
+  },
   title: {
-    fontSize: 30,
+    fontSize: 32,
     lineHeight: 38,
-    fontWeight: "500",
-    color: "#111827",
+    fontWeight: "700",
+    color: "#0f172a",
     textAlign: "center",
+    letterSpacing: -0.6,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 15,
     textAlign: "center",
-    color: "#4b5563",
-    lineHeight: 24,
+    color: "#475569",
+    lineHeight: 22,
     maxWidth: 340,
   },
   planRow: {
@@ -148,30 +158,34 @@ const styles = StyleSheet.create({
   planColumn: {
     flex: 1,
     borderWidth: 1,
-    borderColor: "#e5e7eb",
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: "#fafafa",
+    borderColor: "#e2e8f0",
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    backgroundColor: "#ffffff",
     gap: 6,
+  },
+  planColumnFeatured: {
+    borderColor: "#bfdbfe",
+    backgroundColor: "#eff6ff",
   },
   planTitle: {
     fontSize: 16,
     lineHeight: 22,
-    fontWeight: "600",
-    color: "#111827",
+    fontWeight: "700",
+    color: "#0f172a",
   },
   planItem: {
     fontSize: 14,
     lineHeight: 20,
-    color: "#4b5563",
+    color: "#475569",
   },
   actions: {
     gap: 14,
     paddingBottom: 8,
   },
   primaryButton: {
-    backgroundColor: "#111827",
+    backgroundColor: "#0f172a",
     paddingVertical: 15,
     borderRadius: 14,
     alignItems: "center",
@@ -182,27 +196,27 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   restoreText: {
-    color: "#4b5563",
+    color: "#334155",
     textAlign: "center",
     fontSize: 15,
     lineHeight: 20,
-    fontWeight: "400",
+    fontWeight: "500",
   },
   manageText: {
-    color: "#4b5563",
+    color: "#334155",
     textAlign: "center",
     fontSize: 15,
     lineHeight: 20,
-    fontWeight: "400",
+    fontWeight: "500",
   },
   restoreHint: {
-    color: "#6b7280",
+    color: "#64748b",
     textAlign: "center",
     fontSize: 15,
     lineHeight: 20,
   },
   dismissText: {
-    color: "#6b7280",
+    color: "#64748b",
     textAlign: "center",
     fontSize: 15,
     lineHeight: 20,
