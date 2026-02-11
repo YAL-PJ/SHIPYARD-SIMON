@@ -18,6 +18,15 @@ type SessionOutcomeResponse = {
   outcome?: SessionOutcomeData;
 };
 
+type SessionReportResponse = {
+  report?: {
+    summary?: string;
+    pattern?: string;
+    nextCheckInPrompt?: string;
+    confidence?: number;
+  };
+};
+
 const DEFAULT_API_BASE_URL = "http://localhost:8787";
 const MAX_HISTORY_MESSAGES = 24;
 const REQUEST_TIMEOUT_MS = 30000;
@@ -100,4 +109,31 @@ export const fetchSessionOutcome = async ({
   });
 
   return body?.outcome ?? null;
+};
+
+export const fetchSessionReport = async ({
+  coach,
+  messages,
+  outcome,
+}: {
+  coach: CoachLabel;
+  messages: ChatMessage[];
+  outcome: SessionOutcomeData;
+}) => {
+  const body = await requestJson<SessionReportResponse>("/api/session-report", {
+    coach,
+    outcome,
+    messages: messages.filter((message) => !message.isError).slice(-MAX_HISTORY_MESSAGES),
+  });
+
+  if (!body?.report) {
+    return null;
+  }
+
+  return {
+    summary: body.report.summary?.trim() ?? "",
+    pattern: body.report.pattern?.trim() ?? "",
+    nextCheckInPrompt: body.report.nextCheckInPrompt?.trim() ?? "",
+    confidence: typeof body.report.confidence === "number" ? body.report.confidence : 0.5,
+  };
 };

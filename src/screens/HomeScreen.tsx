@@ -132,6 +132,19 @@ export const HomeScreen = ({ navigation }: Props) => {
         <TouchableOpacity style={styles.timelineButton} onPress={() => navigation.navigate("Insights")}> 
           <Text style={styles.timelineButtonText}>Quality insights</Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.timelineButton}
+          onPress={() => {
+            if (!isSubscribed) {
+              navigation.navigate("Paywall", { coach: "Focus Coach", source: "home" });
+              return;
+            }
+
+            navigation.navigate("Portal");
+          }}
+        >
+          <Text style={styles.timelineButtonText}>Advanced Portal</Text>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.modeHelperCard}>

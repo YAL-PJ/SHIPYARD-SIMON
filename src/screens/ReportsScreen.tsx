@@ -33,7 +33,9 @@ export const ReportsScreen = (_: Props) => {
         contentContainerStyle={styles.list}
         renderItem={({ item }) => (
           <View style={styles.card}>
-            <Text style={styles.meta}>{item.coach}</Text>
+            <Text style={styles.meta}>
+              {item.coach} • {item.source === "ai" ? "AI report" : "Fallback report"} • Confidence {Math.round(item.confidence * 100)}%
+            </Text>
             <Text style={styles.sectionLabel}>Summary</Text>
             <Text style={styles.text}>{item.summary}</Text>
             <Text style={styles.sectionLabel}>Pattern</Text>

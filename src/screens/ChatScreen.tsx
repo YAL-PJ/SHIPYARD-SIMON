@@ -10,7 +10,7 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 
-import { fetchCoachReply, fetchSessionOutcome } from "../ai/openai";
+import { fetchCoachReply, fetchSessionOutcome, fetchSessionReport } from "../ai/openai";
 import { useMonetization } from "../context/MonetizationContext";
 import { COACH_OPENING_MESSAGES } from "../ai/prompts";
 import { ChatMessage } from "../types/chat";
@@ -20,6 +20,7 @@ import { SessionOutcomeData } from "../types/progress";
 import { getUserContext } from "../storage/preferences";
 import { getMemoryItems, isMemoryEnabled } from "../storage/memory";
 import { getCoachEditConfig } from "../storage/editedCoach";
+import { getInstructionPackContext } from "../storage/instructionPacks";
 import {
   consumeDailyFreeMessage,
   isChatPausedForToday,
@@ -84,24 +85,33 @@ const deriveDraftOutcome = (
 };
 
 const buildCoachingContext = async () => {
-  const [userContext, memoryEnabled, memoryItems] = await Promise.all([
+  const [userContext, memoryEnabled, memoryItems, instructionContext] = await Promise.all([
     getUserContext(),
     isMemoryEnabled(),
     getMemoryItems(),
+    getInstructionPackContext(),
   ]);
 
-  if (!memoryEnabled || memoryItems.length === 0) {
-    return userContext;
+  const contextParts: string[] = [];
+
+  if (userContext.trim().length > 0) {
+    contextParts.push(userContext);
   }
 
-  const memoryBlock = memoryItems
-    .slice(0, 6)
-    .map((item) => `- ${item.label}`)
-    .join("\n");
+  if (memoryEnabled && memoryItems.length > 0) {
+    const memoryBlock = memoryItems
+      .slice(0, 6)
+      .map((item) => `- ${item.label}`)
+      .join("\n");
 
-  return [userContext, "Remembered patterns:", memoryBlock]
-    .filter((part) => part && part.trim().length > 0)
-    .join("\n\n");
+    contextParts.push(["Remembered patterns:", memoryBlock].join("\n"));
+  }
+
+  if (instructionContext) {
+    contextParts.push(instructionContext);
+  }
+
+  return contextParts.join("\n\n");
 };
 
 const MessageContent = ({ message }: MessageContentProps) => {
@@ -222,6 +232,15 @@ export const ChatScreen = ({ navigation, route }: Props) => {
       coach,
       messages: messagesToPersist,
     });
+    const chosenOutcome = aiOutcome ?? localOutcome;
+
+    const aiReport = chosenOutcome
+      ? await fetchSessionReport({
+          coach,
+          messages: messagesToPersist,
+          outcome: chosenOutcome,
+        })
+      : null;
 
     await trackEvent("outcome_extraction_result", {
       coach,
@@ -229,11 +248,19 @@ export const ChatScreen = ({ navigation, route }: Props) => {
       used_fallback_outcome: !aiOutcome,
     });
 
+    await trackEvent("session_report_extraction_result", {
+      coach,
+      used_ai_report: Boolean(aiReport),
+      report_confidence: aiReport?.confidence ?? null,
+      used_fallback_report: !aiReport,
+    });
+
     await saveSessionWithOutcome({
       coach,
       startedAt: sessionStartedAtRef.current,
       messages: messagesToPersist,
-      outcomeOverride: aiOutcome ?? localOutcome,
+      outcomeOverride: chosenOutcome,
+      reportOverride: aiReport,
     });
   };
 

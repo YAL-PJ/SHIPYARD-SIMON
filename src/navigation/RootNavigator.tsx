@@ -13,6 +13,7 @@ import { ReportsScreen } from "../screens/ReportsScreen";
 import { MemoryScreen } from "../screens/MemoryScreen";
 import { SafetyScreen } from "../screens/SafetyScreen";
 import { InsightsScreen } from "../screens/InsightsScreen";
+import { PortalScreen } from "../screens/PortalScreen";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -72,6 +73,11 @@ export const RootNavigator = () => {
       <Stack.Screen
         name="Insights"
         component={InsightsScreen}
+        options={{ title: "" }}
+      />
+      <Stack.Screen
+        name="Portal"
+        component={PortalScreen}
         options={{ title: "" }}
       />
     </Stack.Navigator>
