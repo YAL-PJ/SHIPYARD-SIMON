@@ -130,7 +130,7 @@ const toCoachDescriptor = (coach: CoachLabel) => {
 const buildSessionReport = (
   outcome: SessionOutcomeCard,
   latestUserMessage: string,
-): SessionReportCard => {
+): Omit<SessionReportCard, "id" | "createdAt" | "coach" | "sourceSessionId" | "sourceOutcomeId"> => {
   const summary =
     outcome.data.kind === "focus"
       ? `You narrowed the session to one clear priority: ${outcome.data.priority}`
@@ -153,17 +153,14 @@ const buildSessionReport = (
         : `Carry this into your next check-in: ${outcome.data.questionToCarry}`;
 
   return {
-    id: createId("report"),
-    createdAt: new Date().toISOString(),
-    coach: outcome.coach,
-    sourceSessionId: outcome.sourceSessionId,
-    sourceOutcomeId: outcome.id,
     summary: safeSentence(summary, `You completed a ${outcome.coach} session.`),
     pattern: safeSentence(pattern, "Pattern signal captured from this session."),
     nextCheckInPrompt: safeSentence(
       nextCheckInPrompt || latestUserMessage,
       "What feels most important to revisit next?",
     ),
+    confidence: 0.4,
+    source: "fallback",
   };
 };
 
@@ -301,11 +298,18 @@ export const saveSessionWithOutcome = async ({
   startedAt,
   messages,
   outcomeOverride,
+  reportOverride,
 }: {
   coach: CoachLabel;
   startedAt: string;
   messages: ChatMessage[];
   outcomeOverride?: SessionOutcomeData | null;
+  reportOverride?: {
+    summary: string;
+    pattern: string;
+    nextCheckInPrompt: string;
+    confidence: number;
+  } | null;
 }) => {
   const conversationalMessages = messages.filter(
     (message) => !message.isOpening && !message.isError,
@@ -356,7 +360,25 @@ export const saveSessionWithOutcome = async ({
 
   const nextOutcomes = [outcomeCard, ...existingOutcomes];
   const nextHistory = [sessionEntry, ...existingHistory];
-  const reportCard = buildSessionReport(outcomeCard, latestUserMessage);
+  const fallbackReport = buildSessionReport(outcomeCard, latestUserMessage);
+  const reportCard: SessionReportCard = {
+    id: createId("report"),
+    createdAt: new Date().toISOString(),
+    coach,
+    sourceSessionId: sessionId,
+    sourceOutcomeId: outcomeCard.id,
+    summary: safeSentence(reportOverride?.summary ?? fallbackReport.summary, fallbackReport.summary),
+    pattern: safeSentence(reportOverride?.pattern ?? fallbackReport.pattern, fallbackReport.pattern),
+    nextCheckInPrompt: safeSentence(
+      reportOverride?.nextCheckInPrompt ?? fallbackReport.nextCheckInPrompt,
+      fallbackReport.nextCheckInPrompt,
+    ),
+    confidence:
+      typeof reportOverride?.confidence === "number"
+        ? Math.max(0, Math.min(1, Number(reportOverride.confidence.toFixed(2))))
+        : fallbackReport.confidence,
+    source: reportOverride ? "ai" : "fallback",
+  };
   const nextReports = [reportCard, ...existingReports];
 
   await Promise.all([
@@ -378,6 +400,8 @@ export const saveSessionWithOutcome = async ({
     coach,
     outcome_kind: outcomeCard.data.kind,
     report_id: reportCard.id,
+    report_source: reportCard.source,
+    report_confidence: reportCard.confidence,
   });
 
   return outcomeCard;

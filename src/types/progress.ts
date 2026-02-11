@@ -47,6 +47,8 @@ export type SessionReportCard = {
   summary: string;
   pattern: string;
   nextCheckInPrompt: string;
+  confidence: number;
+  source: "ai" | "fallback";
 };
 
 export type TimelineItem =

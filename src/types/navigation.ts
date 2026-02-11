@@ -12,4 +12,5 @@ export type RootStackParamList = {
   Memory: undefined;
   Safety: undefined;
   Insights: undefined;
+  Portal: undefined;
 };

@@ -10,6 +10,7 @@ const MODEL = "gpt-4o-mini";
 const TEMPERATURE = 0.2;
 const MAX_TOKENS = 200;
 const OUTCOME_MAX_TOKENS = 180;
+const REPORT_MAX_TOKENS = 220;
 const MAX_HISTORY_MESSAGES = 24;
 const PORT = Number(process.env.PORT || 8787);
 
@@ -341,6 +342,83 @@ Return JSON only.`,
   return validateOutcome(coach, parsed);
 };
 
+const REPORT_SYSTEM_PROMPT = [
+  "Create a calm, factual coaching session report.",
+  "Return JSON only with keys: summary, pattern, nextCheckInPrompt, confidence.",
+  "summary, pattern, and nextCheckInPrompt must each be one sentence.",
+  "confidence must be a number between 0 and 1.",
+  "No hype, no diagnosis, no promises.",
+].join(" ");
+
+const normalizeConfidence = (value) => {
+  if (typeof value !== "number" || Number.isNaN(value)) {
+    return 0.5;
+  }
+
+  return Math.max(0, Math.min(1, Number(value.toFixed(2))));
+};
+
+const getSessionReport = async ({ coach, messages, outcome }) => {
+  const openai = getOpenAIClient();
+
+  const conversationText = messages
+    .filter(
+      (message) =>
+        message &&
+        (message.role === "assistant" || message.role === "user") &&
+        typeof message.content === "string" &&
+        message.content.trim().length > 0 &&
+        !message.isError,
+    )
+    .slice(-MAX_HISTORY_MESSAGES)
+    .map((message) => `${message.role === "user" ? "User" : "Coach"}: ${message.content.trim()}`)
+    .join("\n");
+
+  const completionResponse = await openai.chat.completions.create({
+    model: MODEL,
+    temperature: 0,
+    max_tokens: REPORT_MAX_TOKENS,
+    messages: [
+      { role: "system", content: REPORT_SYSTEM_PROMPT },
+      {
+        role: "user",
+        content: [
+          `Coach: ${coach}`,
+          `Outcome JSON: ${JSON.stringify(outcome ?? {})}`,
+          `Conversation:\n${conversationText || "(empty)"}`,
+          "Return JSON only.",
+        ].join("\n\n"),
+      },
+    ],
+  });
+
+  const raw = completionResponse.choices[0]?.message?.content?.trim() || "";
+  if (!raw) {
+    throw new HttpError(502, "Session report extraction failed");
+  }
+
+  const jsonCandidate = extractLikelyJson(raw);
+  let parsed;
+  try {
+    parsed = JSON.parse(jsonCandidate);
+  } catch {
+    throw new HttpError(502, "Session report extraction failed");
+  }
+
+  return {
+    summary: normalizeSentence(parsed.summary, "You closed this session with a clear outcome."),
+    pattern: normalizeSentence(
+      parsed.pattern,
+      "Pattern signal: you are building continuity through repeated coaching check-ins.",
+    ),
+    nextCheckInPrompt: normalizeSentence(
+      parsed.nextCheckInPrompt,
+      "At your next session, revisit what shifted after this outcome.",
+    ),
+    confidence: normalizeConfidence(parsed.confidence),
+  };
+};
+
 const parsePayload = (rawBody) => {
   if (!rawBody) {
     throw new HttpError(400, "Missing request body");
@@ -361,12 +439,13 @@ const parsePayload = (rawBody) => {
     parsed.editedCoach && typeof parsed.editedCoach === "object"
       ? parsed.editedCoach
       : null;
+  const outcome = parsed.outcome && typeof parsed.outcome === "object" ? parsed.outcome : null;
 
   if (!COACH_LABELS.has(coach)) {
     throw new HttpError(400, "Invalid coach");
   }
 
-  return { coach, messages, userContext, editedCoach };
+  return { coach, messages, userContext, editedCoach, outcome };
 };
 
 createServer(async (request, response) => {
@@ -385,7 +464,11 @@ createServer(async (request, response) => {
     return;
   }
 
-  if (request.url !== "/api/coach-reply" && request.url !== "/api/session-outcome") {
+  if (
+    request.url !== "/api/coach-reply" &&
+    request.url !== "/api/session-outcome" &&
+    request.url !== "/api/session-report"
+  ) {
     sendJson(response, 404, { error: "Not found" });
     return;
   }
@@ -397,6 +480,12 @@ createServer(async (request, response) => {
     if (request.url === "/api/session-outcome") {
       const outcome = await getSessionOutcome(payload);
       sendJson(response, 200, { outcome });
+      return;
+    }
+
+    if (request.url === "/api/session-report") {
+      const report = await getSessionReport(payload);
+      sendJson(response, 200, { report });
       return;
     }
 
