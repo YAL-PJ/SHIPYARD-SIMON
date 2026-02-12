@@ -203,9 +203,9 @@ export const ChatScreen = ({ navigation, route }: Props) => {
 
   useEffect(() => {
     const autoReplyToSeed = async () => {
-      const conversational = messages.filter((m) => !m.isOpening && !m.isError);
-      const hasAssistantReply = conversational.some((m) => m.role === "assistant");
-      const firstUserMessage = conversational.find((m) => m.role === "user");
+      const nonOpeningMessages = messages.filter((m) => !m.isOpening);
+      const hasAssistantReply = nonOpeningMessages.some((m) => m.role === "assistant");
+      const firstUserMessage = nonOpeningMessages.find((m) => m.role === "user");
 
       if (!firstUserMessage || hasAssistantReply || isSending) {
         return;
@@ -226,6 +226,18 @@ export const ChatScreen = ({ navigation, route }: Props) => {
             role: "assistant",
             content: reply || ERROR_MESSAGE,
             isError: !reply,
+          };
+          const next = [...prev, assistantMessage];
+          setDraftOutcome(deriveDraftOutcome(coach, next));
+          return next;
+        });
+      } catch {
+        setMessages((prev) => {
+          const assistantMessage: ChatMessage = {
+            id: createMessageId(),
+            role: "assistant",
+            content: ERROR_MESSAGE,
+            isError: true,
           };
           const next = [...prev, assistantMessage];
           setDraftOutcome(deriveDraftOutcome(coach, next));
