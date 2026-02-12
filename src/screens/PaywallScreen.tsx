@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Pressable, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { useMonetization } from "../context/MonetizationContext";
 import { pauseChatForToday } from "../storage/dailyLimit";
@@ -17,6 +17,7 @@ export const PaywallScreen = ({ navigation, route }: Props) => {
     openCustomerCenter,
   } = useMonetization();
   const [restoreMessage, setRestoreMessage] = useState<string | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<"free" | "plus" | "advanced">("plus");
 
   const closeAndPauseChat = async () => {
     if (source === "chat") {
@@ -41,6 +42,20 @@ export const PaywallScreen = ({ navigation, route }: Props) => {
     }
 
     await closeAndPauseChat();
+  };
+
+  const handlePrimaryAction = async () => {
+    if (selectedPlan === "plus") {
+      await handlePurchase();
+      return;
+    }
+
+    if (selectedPlan === "free") {
+      await closeAndPauseChat();
+      return;
+    }
+
+    setRestoreMessage("Advanced Portal is rolling out soon.");
   };
 
   const handleRestore = async () => {
@@ -73,14 +88,28 @@ export const PaywallScreen = ({ navigation, route }: Props) => {
           Unlock memory controls, session reports, and continuity. Advanced Portal adds instruction packs plus connector-based context.
         </Text>
         <View style={styles.planList}>
-          <View style={styles.planColumn}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ selected: selectedPlan === "free" }}
+            onPress={() => setSelectedPlan("free")}
+            style={[styles.planColumn, selectedPlan === "free" && styles.planColumnSelected]}
+          >
             <Text style={styles.planTitle}>Free</Text>
             <Text style={styles.planMeta}>Core coaching</Text>
             <Text style={styles.planItem}>• 3 coaches</Text>
             <Text style={styles.planItem}>• Limited daily sessions</Text>
             <Text style={styles.planItem}>• Timeline + history</Text>
-          </View>
-          <View style={[styles.planColumn, styles.planColumnFeatured]}>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ selected: selectedPlan === "plus" }}
+            onPress={() => setSelectedPlan("plus")}
+            style={[
+              styles.planColumn,
+              styles.planColumnFeatured,
+              selectedPlan === "plus" && styles.planColumnSelected,
+            ]}
+          >
             <View style={styles.proHeader}>
               <Text style={styles.planTitle}>Plus</Text>
               <Text style={styles.bestValuePill}>BEST VALUE</Text>
@@ -89,14 +118,19 @@ export const PaywallScreen = ({ navigation, route }: Props) => {
             <Text style={styles.planItem}>• Unlimited sessions</Text>
             <Text style={styles.planItem}>• Memory controls + reports</Text>
             <Text style={styles.planItem}>• Edit coaches + reminders</Text>
-          </View>
-          <View style={styles.planColumn}>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ selected: selectedPlan === "advanced" }}
+            onPress={() => setSelectedPlan("advanced")}
+            style={[styles.planColumn, selectedPlan === "advanced" && styles.planColumnSelected]}
+          >
             <Text style={styles.planTitle}>Advanced Portal</Text>
             <Text style={styles.planMeta}>Rolling out</Text>
             <Text style={styles.planItem}>• Premium instruction packs</Text>
             <Text style={styles.planItem}>• Calendar connector with sync</Text>
             <Text style={styles.planItem}>• Deeper long-term pattern intelligence</Text>
-          </View>
+          </Pressable>
         </View>
         <Text style={styles.trustCopy}>Secure purchase handled by Apple / Google.</Text>
       </View>
@@ -104,10 +138,18 @@ export const PaywallScreen = ({ navigation, route }: Props) => {
         <TouchableOpacity
           accessibilityRole="button"
           style={styles.primaryButton}
-          onPress={handlePurchase}
+          onPress={handlePrimaryAction}
           disabled={isPurchasing}
         >
-          <Text style={styles.primaryText}>{isPurchasing ? "Processing..." : "Start Plus"}</Text>
+          <Text style={styles.primaryText}>
+            {isPurchasing
+              ? "Processing..."
+              : selectedPlan === "free"
+              ? "Continue on Free"
+              : selectedPlan === "advanced"
+              ? "Notify me for Advanced Portal"
+              : "Start Plus"}
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity accessibilityRole="button" onPress={handleRestore}>
           <Text style={styles.restoreText}>Restore purchase</Text>
@@ -184,6 +226,10 @@ const styles = StyleSheet.create({
     shadowRadius: 14,
     shadowOffset: { width: 0, height: 6 },
     elevation: 3,
+  },
+  planColumnSelected: {
+    borderColor: "#1d4ed8",
+    borderWidth: 2,
   },
   proHeader: {
     flexDirection: "row",
