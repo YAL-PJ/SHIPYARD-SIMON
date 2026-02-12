@@ -12,32 +12,20 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export const RootNavigator = () => {
   return (
-    <Stack.Navigator initialRouteName="Welcome">
+    <Stack.Navigator
+      initialRouteName="Welcome"
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
       <Stack.Screen
         name="Welcome"
         component={WelcomeScreen}
-        options={{ headerShown: false }}
       />
-      <Stack.Screen
-        name="Home"
-        component={HomeScreen}
-        options={{ title: "" }}
-      />
-      <Stack.Screen
-        name="Chat"
-        component={ChatScreen}
-        options={{ title: "" }}
-      />
-      <Stack.Screen
-        name="Paywall"
-        component={PaywallScreen}
-        options={{ title: "" }}
-      />
-      <Stack.Screen
-        name="Progress"
-        component={ProgressScreen}
-        options={{ title: "" }}
-      />
+      <Stack.Screen name="Home" component={HomeScreen} />
+      <Stack.Screen name="Chat" component={ChatScreen} />
+      <Stack.Screen name="Paywall" component={PaywallScreen} />
+      <Stack.Screen name="Progress" component={ProgressScreen} />
     </Stack.Navigator>
   );
 };
