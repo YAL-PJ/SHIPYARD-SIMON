@@ -56,15 +56,25 @@ const MAX_HISTORY_MESSAGES = 24;
 const REQUEST_TIMEOUT_MS = 30000;
 
 const getApiBaseUrl = () => {
-  const envValue = (
-    globalThis as {
-      process?: {
-        env?: Record<string, string | undefined>;
-      };
-    }
-  ).process?.env?.EXPO_PUBLIC_API_BASE_URL;
+  const runtime = globalThis as {
+    __SHIPYARD_API_BASE_URL_WARNED__?: boolean;
+    process?: {
+      env?: Record<string, string | undefined>;
+    };
+  };
+
+  const envValue = runtime.process?.env?.EXPO_PUBLIC_API_BASE_URL;
 
   if (!envValue || envValue.trim().length === 0) {
+    const isProduction = runtime.process?.env?.NODE_ENV === "production";
+
+    if (!isProduction && !runtime.__SHIPYARD_API_BASE_URL_WARNED__) {
+      runtime.__SHIPYARD_API_BASE_URL_WARNED__ = true;
+      console.warn(
+        "Missing EXPO_PUBLIC_API_BASE_URL, using localhost fallback (http://localhost:8787). This will not work on physical phones unless you use a reachable backend URL."
+      );
+    }
+
     return DEFAULT_API_BASE_URL;
   }
 
