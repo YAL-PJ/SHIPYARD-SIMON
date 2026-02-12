@@ -53,16 +53,16 @@ export const WelcomeScreen = ({ navigation }: Props) => {
           <View style={styles.badge}>
             <Text style={styles.badgeText}>KAVANAH • COACHING APP</Text>
           </View>
-          <Text style={styles.title}>Think clearly, one session at a time.</Text>
+          <Text style={styles.title}>Clarity. Focus. Action.</Text>
           <Text style={styles.subtitle}>
-            Enter one priority, move through a structured sequence, and leave with a clear outcome.
+            Name one priority. Leave with your next move.
           </Text>
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.label}>What are you navigating right now?</Text>
+          <Text style={styles.label}>What needs clarity today?</Text>
           <TextInput
-            placeholder="Example: juggling deadlines and feeling scattered"
+            placeholder="Example: too many priorities, not enough focus"
             placeholderTextColor="#94a3b8"
             style={styles.input}
             value={contextInput}
@@ -74,7 +74,7 @@ export const WelcomeScreen = ({ navigation }: Props) => {
             maxLength={220}
           />
           <View style={styles.hintRow}>
-            <Text style={styles.hint}>Optional, but it helps personalize your first check-in.</Text>
+            <Text style={styles.hint}>Optional. It sharpens your first session.</Text>
             <Text style={styles.counter}>{contextInput.length}/220</Text>
           </View>
 
