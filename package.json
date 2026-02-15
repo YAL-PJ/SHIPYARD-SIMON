@@ -21,6 +21,7 @@
     "@react-navigation/native-stack": "^6.9.17",
     "dotenv": "^16.6.1",
     "expo": "^54.0.33",
+    "expo-updates": "~29.0.16",
     "openai": "^6.18.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
