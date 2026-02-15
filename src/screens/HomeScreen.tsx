@@ -21,7 +21,8 @@ export const HomeScreen = ({ navigation }: Props) => {
     <View style={styles.container}>
       <View style={styles.topSection}>
         <Text style={styles.eyebrow}>KAVANAH</Text>
-        <Text style={styles.title}>Think one priority through.</Text>
+        <Text style={styles.title}>Kaboooommm123XX
+Think one priority through.</Text>
         <Text style={styles.subtitle}>
           A calm thinking companion for decision clarity and private reflection.
         </Text>

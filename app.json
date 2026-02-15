@@ -9,14 +9,21 @@
     ],
     "updates": {
       "checkAutomatically": "ON_LOAD",
-      "fallbackToCacheTimeout": 0
+      "fallbackToCacheTimeout": 0,
+      "url": "https://u.expo.dev/38313dd3-2fe8-48ed-86dd-b10809657f1e"
     },
     "android": {
-      "package": "com.kavanah.coaching"
+      "package": "com.kavanah.coaching",
+      "runtimeVersion": "1.0.0"
     },
     "extra": {
       "eas": {
         "projectId": "38313dd3-2fe8-48ed-86dd-b10809657f1e"
+      }
+    },
+    "ios": {
+      "runtimeVersion": {
+        "policy": "appVersion"
       }
     }
   }
