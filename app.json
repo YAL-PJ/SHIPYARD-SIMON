@@ -7,6 +7,10 @@
     "assetBundlePatterns": [
       "**/*"
     ],
+    "updates": {
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    },
     "android": {
       "package": "com.kavanah.coaching"
     },
